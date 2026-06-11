@@ -214,22 +214,6 @@ export function GeneratePanel(): React.JSX.Element {
         </div>
       )}
 
-      {linkedWorkflow && (
-        <div className="flex items-center justify-between gap-2 border-b border-accent/40 bg-accent/10 px-3 py-2">
-          <span className="text-[11px] text-zinc-200">
-            Couldn't auto-open the saved workflow. Open{' '}
-            <span className="font-mono text-zinc-100">{linkedWorkflow}</span> from ComfyUI's{' '}
-            <span className="text-zinc-100">Workflows</span> sidebar so Save keeps the link.
-          </span>
-          <button
-            onClick={() => setLinkedWorkflow(null)}
-            className="shrink-0 rounded border border-border px-2 py-1 text-[11px] text-zinc-300 hover:bg-surface"
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
-
       <div className="relative flex-1">
         {running ? (
           <webview
