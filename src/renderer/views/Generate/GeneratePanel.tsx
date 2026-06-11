@@ -54,6 +54,9 @@ export function GeneratePanel(): React.JSX.Element {
 
   const running = status?.running ?? false
   const url = status?.url ?? comfyUrl
+  // Best-effort: ask ComfyUI to open the linked workflow by name. Stock Comfy may
+  // ignore the param (the banner is the reliable fallback); newer builds honour it.
+  const iframeSrc = linkedWorkflow ? `${url}/?workflow=${encodeURIComponent(linkedWorkflow)}` : url
   const comfyArgs = dirs
     ? `--input-directory "${dirs.inputDir}" --output-directory "${dirs.outputDir}"`
     : ''
@@ -146,7 +149,12 @@ export function GeneratePanel(): React.JSX.Element {
 
       <div className="relative flex-1">
         {running ? (
-          <iframe title="ComfyUI" src={url} className="h-full w-full border-0 bg-white" />
+          <iframe
+            key={iframeSrc}
+            title="ComfyUI"
+            src={iframeSrc}
+            className="h-full w-full border-0 bg-white"
+          />
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
             <p className="text-sm text-zinc-300">ComfyUI is not running</p>

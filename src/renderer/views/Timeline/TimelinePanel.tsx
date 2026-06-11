@@ -246,27 +246,25 @@ function ShotCard({
         )}
       </Row>
 
-      {selected && (
-        <div className="flex gap-1 border-t border-border p-1">
-          <button
-            disabled={busy}
-            onClick={(e) => void onLink(e)}
-            className="flex-1 rounded bg-accent px-1 py-1 text-[10px] font-medium text-white disabled:opacity-40"
-          >
-            {busy ? '…' : linked ? 'Open Workflow' : 'Link'}
-          </button>
-          <button
-            disabled={busy}
-            onClick={(e) => {
-              e.stopPropagation()
-              void pullResult(shot.id)
-            }}
-            className="flex-1 rounded border border-border px-1 py-1 text-[10px] text-zinc-300 hover:bg-surface disabled:opacity-40"
-          >
-            {busy ? '…' : 'Pull result'}
-          </button>
-        </div>
-      )}
+      <div className="flex gap-1 border-t border-border p-1">
+        <button
+          disabled={busy}
+          onClick={(e) => void onLink(e)}
+          className="flex-1 rounded bg-accent px-1 py-1 text-[10px] font-medium text-white disabled:opacity-40"
+        >
+          {busy ? '…' : linked ? 'Open Workflow' : 'Link'}
+        </button>
+        <button
+          disabled={busy}
+          onClick={(e) => {
+            e.stopPropagation()
+            void pullResult(shot.id)
+          }}
+          className="flex-1 rounded border border-border px-1 py-1 text-[10px] text-zinc-300 hover:bg-surface disabled:opacity-40"
+        >
+          {busy ? '…' : 'Pull result'}
+        </button>
+      </div>
     </div>
   )
 }
