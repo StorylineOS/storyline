@@ -171,3 +171,15 @@ export interface WorkflowParam {
   nodePath: string
   default?: string | number
 }
+
+/** App-global settings (stored in Electron userData, not per-project). */
+export interface AppSettings {
+  /** The ComfyUI backend Storyline talks to and embeds. */
+  comfyUrl: string
+}
+
+/** Result of pinging the configured ComfyUI backend. */
+export interface ComfyStatus {
+  running: boolean
+  url: string
+}

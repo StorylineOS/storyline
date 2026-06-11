@@ -41,6 +41,16 @@ const api: StorylineApi = {
     setHero: (id: string, takeId: string | null) =>
       ipcRenderer.invoke(IpcChannels.shots.setHero, id, takeId),
     listTakes: (shotId: string) => ipcRenderer.invoke(IpcChannels.shots.listTakes, shotId),
+    heroTakes: () => ipcRenderer.invoke(IpcChannels.shots.heroTakes),
+  },
+  comfy: {
+    status: () => ipcRenderer.invoke(IpcChannels.comfy.status),
+    sendShot: (shotId: string) => ipcRenderer.invoke(IpcChannels.comfy.sendShot, shotId),
+    pullLatest: (shotId: string) => ipcRenderer.invoke(IpcChannels.comfy.pullLatest, shotId),
+  },
+  settings: {
+    get: () => ipcRenderer.invoke(IpcChannels.settings.get),
+    setComfyUrl: (url: string) => ipcRenderer.invoke(IpcChannels.settings.setComfyUrl, url),
   },
   moodboard: {
     list: () => ipcRenderer.invoke(IpcChannels.moodboard.list),

@@ -4,6 +4,8 @@ import { registerAssetHandlers } from './assets'
 import { registerFolderHandlers } from './folders'
 import { registerMoodboardHandlers } from './moodboard'
 import { registerShotHandlers } from './shots'
+import { registerComfyHandlers } from './comfy'
+import { registerSettingsHandlers } from './settings'
 
 export function registerIpcHandlers(): void {
   registerProjectHandlers()
@@ -11,4 +13,6 @@ export function registerIpcHandlers(): void {
   registerFolderHandlers()
   registerMoodboardHandlers()
   registerShotHandlers()
+  registerComfyHandlers()
+  registerSettingsHandlers()
 }

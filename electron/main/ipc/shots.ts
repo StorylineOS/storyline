@@ -11,6 +11,7 @@ import {
   deleteShot,
   setHero,
   listTakes,
+  heroTakes,
 } from '../shots/store'
 
 function str(v: unknown, label: string): string {
@@ -42,4 +43,5 @@ export function registerShotHandlers(): void {
   handle<[string], Take[]>(IpcChannels.shots.listTakes, (shotId) =>
     listTakes(str(shotId, 'shot id')),
   )
+  handle<[], Take[]>(IpcChannels.shots.heroTakes, () => heroTakes())
 }

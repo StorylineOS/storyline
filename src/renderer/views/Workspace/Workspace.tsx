@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import type { Project } from '@shared/types'
 import { Logo } from '../../components/Logo'
@@ -6,22 +5,24 @@ import { useProjectStore } from '../../store/projectStore'
 import { useAssetStore } from '../../store/assetStore'
 import { useMoodboardStore } from '../../store/moodboardStore'
 import { useShotStore } from '../../store/shotStore'
+import { useUiStore, type WorkspaceMode } from '../../store/uiStore'
 import { LibraryPanel } from '../Library/LibraryPanel'
 import { PreviewPanel } from '../Preview/PreviewPanel'
 import { TimelinePanel } from '../Timeline/TimelinePanel'
 import { MoodboardPanel } from '../Moodboard/MoodboardPanel'
-
-type Mode = 'edit' | 'moodboard'
+import { GeneratePanel } from '../Generate/GeneratePanel'
 
 /** The main editing shell (iMovie-style): assets left, preview right, timeline bottom. */
 export function Workspace({ project }: { project: Project }): React.JSX.Element {
-  const [mode, setMode] = useState<Mode>('edit')
+  const mode = useUiStore((s) => s.mode)
+  const setMode = useUiStore((s) => s.setMode)
   const closeProject = useProjectStore((s) => s.closeProject)
   const resetAssets = useAssetStore((s) => s.reset)
   const resetBoard = useMoodboardStore((s) => s.reset)
   const resetShots = useShotStore((s) => s.reset)
 
   const onClose = (): void => {
+    setMode('edit')
     resetAssets()
     resetBoard()
     resetShots()
@@ -51,7 +52,9 @@ export function Workspace({ project }: { project: Project }): React.JSX.Element 
       </header>
 
       <main className="min-h-0 flex-1">
-        {mode === 'moodboard' ? (
+        {mode === 'generate' ? (
+          <GeneratePanel />
+        ) : mode === 'moodboard' ? (
           <MoodboardPanel />
         ) : (
           <PanelGroup direction="vertical" autoSaveId="storyline:workspace:v">
@@ -81,13 +84,17 @@ function ModeToggle({
   mode,
   onChange,
 }: {
-  mode: Mode
-  onChange: (m: Mode) => void
+  mode: WorkspaceMode
+  onChange: (m: WorkspaceMode) => void
 }): React.JSX.Element {
-  const labels: Record<Mode, string> = { edit: 'Create', moodboard: 'Moodboard' }
+  const labels: Record<WorkspaceMode, string> = {
+    edit: 'Create',
+    moodboard: 'Moodboard',
+    generate: 'Generate',
+  }
   return (
     <div className="flex rounded-md border border-border bg-panel p-0.5 text-xs">
-      {(['edit', 'moodboard'] as const).map((m) => (
+      {(['edit', 'moodboard', 'generate'] as const).map((m) => (
         <button
           key={m}
           onClick={() => onChange(m)}

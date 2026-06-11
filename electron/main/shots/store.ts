@@ -4,8 +4,9 @@
  * live in a single auto-created default sequence (sequences aren't exposed in the UI yet).
  */
 import { randomUUID } from 'node:crypto'
+import { join } from 'node:path'
 import type { Shot, Take, ShotKind, AssetKind } from '@shared/types'
-import { getDb } from '../db'
+import { getDb, getOpenProjectFolder } from '../db'
 import { importViaDialog } from '../assets/store'
 
 interface ShotRow {
@@ -182,4 +183,62 @@ export function listTakes(shotId: string): Take[] {
     .prepare('SELECT * FROM takes WHERE shot_id = ? ORDER BY created_at DESC')
     .all(shotId) as TakeRow[]
   return rows.map(rowToTake)
+}
+
+/** The hero (Output) take of every shot that has one — one query for the timeline. */
+export function heroTakes(): Take[] {
+  const rows = getDb()
+    .prepare('SELECT t.* FROM takes t JOIN shots s ON s.hero_take_id = t.id')
+    .all() as TakeRow[]
+  return rows.map(rowToTake)
+}
+
+/** Insert a generated take for a shot and make it the hero (Output). */
+export function addTake(input: {
+  shotId: string
+  filePath: string
+  kind: AssetKind
+  comfyPromptId: string | null
+  params: Record<string, unknown>
+}): Take {
+  getShot(input.shotId) // ensure exists
+  const id = randomUUID()
+  const now = Date.now()
+  getDb()
+    .prepare(
+      `INSERT INTO takes (id, shot_id, file_path, kind, params, comfy_prompt_id, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .run(
+      id,
+      input.shotId,
+      input.filePath,
+      input.kind,
+      JSON.stringify(input.params),
+      input.comfyPromptId,
+      now,
+    )
+  setHero(input.shotId, id)
+  return {
+    id,
+    shotId: input.shotId,
+    filePath: input.filePath,
+    kind: input.kind,
+    params: input.params,
+    comfyPromptId: input.comfyPromptId,
+    createdAt: now,
+  }
+}
+
+/** Absolute path of a shot's input asset (for uploading to ComfyUI). */
+export function shotInputAbsPath(shotId: string): string {
+  const shot = getShot(shotId)
+  if (!shot.inputAssetId) throw new Error('This shot has no input asset to send.')
+  const asset = getDb()
+    .prepare('SELECT file_path FROM assets WHERE id = ?')
+    .get(shot.inputAssetId) as { file_path: string } | undefined
+  if (!asset) throw new Error('Input asset not found.')
+  const folder = getOpenProjectFolder()
+  if (!folder) throw new Error('No project is open.')
+  return join(folder, asset.file_path)
 }

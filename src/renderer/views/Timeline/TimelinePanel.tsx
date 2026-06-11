@@ -3,6 +3,7 @@ import { mediaUrl } from '@shared/media'
 import type { Shot } from '@shared/types'
 import { useShotStore } from '../../store/shotStore'
 import { useAssetStore } from '../../store/assetStore'
+import { useUiStore } from '../../store/uiStore'
 
 /**
  * The shot-sequencer timeline: ordered shot columns, each with an Input row (the
@@ -86,10 +87,14 @@ function ShotCard({
   onDrop: () => void
 }): React.JSX.Element {
   const asset = useAssetStore((s) => s.assets.find((a) => a.id === shot.inputAssetId))
-  const { rename, remove } = useShotStore()
+  const output = useShotStore((s) => s.outputs[shot.id])
+  const busy = useShotStore((s) => s.busyId === shot.id)
+  const { rename, remove, sendToComfy, pullResult } = useShotStore()
+  const setMode = useUiStore((s) => s.setMode)
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(shot.name)
   const inputUrl = asset ? mediaUrl(asset.filePath) : null
+  const outputUrl = output ? mediaUrl(output.filePath) : null
 
   const commitName = (): void => {
     setEditing(false)
@@ -163,12 +168,47 @@ function ShotCard({
       </Row>
 
       <Row label="Output">
-        {shot.heroTakeId ? (
-          <span className="text-[10px] text-zinc-500">take selected</span>
+        {outputUrl ? (
+          output?.kind === 'video' ? (
+            <video
+              src={outputUrl}
+              muted
+              preload="metadata"
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <img src={outputUrl} alt="" className="h-full w-full object-cover" />
+          )
         ) : (
           <span className="text-[10px] text-zinc-600">no output yet</span>
         )}
       </Row>
+
+      {selected && (
+        <div className="flex gap-1 border-t border-border p-1">
+          <button
+            disabled={busy}
+            onClick={(e) => {
+              e.stopPropagation()
+              void sendToComfy(shot.id)
+              setMode('generate')
+            }}
+            className="flex-1 rounded bg-accent px-1 py-1 text-[10px] font-medium text-white disabled:opacity-40"
+          >
+            Send to ComfyUI
+          </button>
+          <button
+            disabled={busy}
+            onClick={(e) => {
+              e.stopPropagation()
+              void pullResult(shot.id)
+            }}
+            className="flex-1 rounded border border-border px-1 py-1 text-[10px] text-zinc-300 hover:bg-surface disabled:opacity-40"
+          >
+            {busy ? '…' : 'Pull result'}
+          </button>
+        </div>
+      )}
     </div>
   )
 }

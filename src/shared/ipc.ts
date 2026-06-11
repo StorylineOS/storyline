@@ -17,6 +17,8 @@ import type {
   MoodboardItemData,
   Shot,
   Take,
+  AppSettings,
+  ComfyStatus,
 } from './types'
 import type { Result } from './result'
 
@@ -47,6 +49,16 @@ export const IpcChannels = {
     delete: 'shots:delete',
     setHero: 'shots:setHero',
     listTakes: 'shots:listTakes',
+    heroTakes: 'shots:heroTakes',
+  },
+  comfy: {
+    status: 'comfy:status',
+    sendShot: 'comfy:sendShot',
+    pullLatest: 'comfy:pullLatest',
+  },
+  settings: {
+    get: 'settings:get',
+    setComfyUrl: 'settings:setComfyUrl',
   },
   moodboard: {
     list: 'moodboard:list',
@@ -130,6 +142,20 @@ export interface StorylineApi {
     setHero(id: string, takeId: string | null): Promise<Result<Shot>>
     /** The shot's generated takes, newest first. */
     listTakes(shotId: string): Promise<Result<Take[]>>
+    /** The hero (Output) take of every shot that has one. */
+    heroTakes(): Promise<Result<Take[]>>
+  }
+  comfy: {
+    /** Is the configured ComfyUI reachable? */
+    status(): Promise<Result<ComfyStatus>>
+    /** Upload a shot's input into ComfyUI so it can be used there; returns the name. */
+    sendShot(shotId: string): Promise<Result<string>>
+    /** Pull ComfyUI's latest output and attach it to the shot as its Output take. */
+    pullLatest(shotId: string): Promise<Result<Take>>
+  }
+  settings: {
+    get(): Promise<Result<AppSettings>>
+    setComfyUrl(url: string): Promise<Result<AppSettings>>
   }
   moodboard: {
     /** The full board (items + connectors) for the open project. */
