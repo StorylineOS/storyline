@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { ComfyStatus } from '@shared/types'
+import type { ComfyStatus, ProjectMediaDirs } from '@shared/types'
 import { useSettingsStore } from '../../store/settingsStore'
 
 /**
@@ -11,6 +11,14 @@ export function GeneratePanel(): React.JSX.Element {
   const { comfyUrl, load, setComfyUrl } = useSettingsStore()
   const [status, setStatus] = useState<ComfyStatus | null>(null)
   const [draftUrl, setDraftUrl] = useState('')
+  const [dirs, setDirs] = useState<ProjectMediaDirs | null>(null)
+  const [copied, setCopied] = useState<string | null>(null)
+
+  const copy = (key: string, text: string): void => {
+    void window.storyline.clipboard.writeText(text)
+    setCopied(key)
+    setTimeout(() => setCopied((current) => (current === key ? null : current)), 1500)
+  }
 
   const check = async (): Promise<void> => {
     try {
@@ -23,6 +31,10 @@ export function GeneratePanel(): React.JSX.Element {
 
   useEffect(() => {
     void load()
+    void (async () => {
+      const res = await window.storyline.project.mediaDirs()
+      if (res.ok) setDirs(res.value)
+    })()
   }, [load])
 
   useEffect(() => {
@@ -38,6 +50,9 @@ export function GeneratePanel(): React.JSX.Element {
 
   const running = status?.running ?? false
   const url = status?.url ?? comfyUrl
+  const launchCmd = dirs
+    ? `python main.py --input-directory "${dirs.inputDir}" --output-directory "${dirs.outputDir}"`
+    : ''
 
   return (
     <div className="flex h-full flex-col bg-panel">
@@ -70,6 +85,36 @@ export function GeneratePanel(): React.JSX.Element {
         </button>
       </div>
 
+      {dirs && (
+        <div className="border-b border-border px-3 py-2">
+          <div className="mb-1.5 flex items-center justify-between">
+            <span className="text-[11px] text-zinc-400">
+              Share these folders with ComfyUI — launch it with{' '}
+              <code className="text-zinc-300">--input-directory</code> /{' '}
+              <code className="text-zinc-300">--output-directory</code>:
+            </span>
+            <button
+              onClick={() => copy('cmd', launchCmd)}
+              className="shrink-0 rounded border border-border px-2 py-1 text-[11px] text-zinc-300 hover:bg-surface"
+            >
+              {copied === 'cmd' ? 'Copied' : 'Copy command'}
+            </button>
+          </div>
+          <DirRow
+            label="Input"
+            path={dirs.inputDir}
+            copied={copied === 'input'}
+            onCopy={() => copy('input', dirs.inputDir)}
+          />
+          <DirRow
+            label="Output"
+            path={dirs.outputDir}
+            copied={copied === 'output'}
+            onCopy={() => copy('output', dirs.outputDir)}
+          />
+        </div>
+      )}
+
       <div className="relative flex-1">
         {running ? (
           <iframe title="ComfyUI" src={url} className="h-full w-full border-0 bg-white" />
@@ -84,6 +129,38 @@ export function GeneratePanel(): React.JSX.Element {
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+function DirRow({
+  label,
+  path,
+  copied,
+  onCopy,
+}: {
+  label: string
+  path: string
+  copied: boolean
+  onCopy: () => void
+}): React.JSX.Element {
+  return (
+    <div className="mt-1 flex items-center gap-2">
+      <span className="w-12 shrink-0 text-[10px] uppercase tracking-wide text-zinc-500">
+        {label}
+      </span>
+      <code
+        title={path}
+        className="flex-1 truncate rounded bg-surface px-2 py-1 font-mono text-[11px] text-zinc-300"
+      >
+        {path}
+      </code>
+      <button
+        onClick={onCopy}
+        className="shrink-0 rounded border border-border px-2 py-1 text-[11px] text-zinc-300 hover:bg-surface"
+      >
+        {copied ? 'Copied' : 'Copy'}
+      </button>
     </div>
   )
 }

@@ -184,6 +184,14 @@ export interface ComfyStatus {
   url: string
 }
 
+/** Absolute media directories of the open project, for sharing with ComfyUI. */
+export interface ProjectMediaDirs {
+  /** Where Storyline keeps imported inputs — point ComfyUI's --input-directory here. */
+  inputDir: string
+  /** Where Storyline keeps generated outputs — point ComfyUI's --output-directory here. */
+  outputDir: string
+}
+
 /** Summary of an "export shots to folder" run. */
 export interface ExportResult {
   /** Absolute directory the files were written to. */

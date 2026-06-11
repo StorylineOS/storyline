@@ -19,6 +19,10 @@ const api: StorylineApi = {
     openDialog: () => ipcRenderer.invoke(IpcChannels.project.openDialog),
     listRecent: () => ipcRenderer.invoke(IpcChannels.project.listRecent),
     current: () => ipcRenderer.invoke(IpcChannels.project.current),
+    mediaDirs: () => ipcRenderer.invoke(IpcChannels.project.mediaDirs),
+  },
+  clipboard: {
+    writeText: (text: string) => ipcRenderer.invoke(IpcChannels.clipboard.writeText, text),
   },
   assets: {
     importDialog: (folderId: string | null) =>

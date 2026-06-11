@@ -4,6 +4,7 @@ import type { Shot } from '@shared/types'
 import { useShotStore } from '../../store/shotStore'
 import { useAssetStore } from '../../store/assetStore'
 import { useUiStore } from '../../store/uiStore'
+import { ASSET_DND_TYPE } from '../../lib/dnd'
 
 /**
  * The shot-sequencer timeline: ordered shot columns, each with an Input row (the
@@ -11,14 +12,44 @@ import { useUiStore } from '../../store/uiStore'
  * adds shots; drag a card to reorder; click to preview; double-click the name to rename.
  */
 export function TimelinePanel(): React.JSX.Element {
-  const { shots, selectedId, error, notice, load, importAsShots, reorder, select, exportShots } =
-    useShotStore()
+  const {
+    shots,
+    selectedId,
+    error,
+    notice,
+    load,
+    importAsShots,
+    addFromAsset,
+    reorder,
+    select,
+    exportShots,
+  } = useShotStore()
   const selectAsset = useAssetStore((s) => s.select)
   const dragId = useRef<string | null>(null)
+  const [dropActive, setDropActive] = useState(false)
 
   useEffect(() => {
     void load()
   }, [load])
+
+  /** Allow dropping a Library asset (sets the copy cursor + highlight). */
+  const onAssetDragOver = (e: React.DragEvent): void => {
+    if (e.dataTransfer.types.includes(ASSET_DND_TYPE)) {
+      e.preventDefault()
+      e.dataTransfer.dropEffect = 'copy'
+      setDropActive(true)
+    }
+  }
+
+  /** Drop a Library asset anywhere on the strip → create a shot from it. */
+  const onAssetDrop = (e: React.DragEvent): void => {
+    const assetId = e.dataTransfer.getData(ASSET_DND_TYPE)
+    setDropActive(false)
+    if (assetId) {
+      e.preventDefault()
+      void addFromAsset(assetId)
+    }
+  }
 
   const onSelect = (shot: Shot): void => {
     select(shot.id)
@@ -39,7 +70,8 @@ export function TimelinePanel(): React.JSX.Element {
     <div className="flex h-full flex-col bg-surface">
       <div className="flex items-center justify-between border-b border-border px-3 py-2">
         <span className="text-xs font-medium uppercase tracking-wide text-zinc-400">
-          Shots {shots.length > 0 && <span className="text-zinc-600">· {shots.length}</span>}
+          Shots Sequence{' '}
+          {shots.length > 0 && <span className="text-zinc-600">· {shots.length}</span>}
         </span>
         <div className="flex items-center gap-1.5">
           <button
@@ -61,25 +93,34 @@ export function TimelinePanel(): React.JSX.Element {
       {error && <p className="px-3 py-1 text-xs text-red-400">{error}</p>}
       {notice && <p className="px-3 py-1 text-xs text-green-400">{notice}</p>}
 
-      {shots.length === 0 ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-1 text-center">
-          <p className="text-sm text-zinc-500">No shots yet</p>
-          <p className="text-xs text-zinc-600">Import images or videos — each becomes a shot.</p>
-        </div>
-      ) : (
-        <div className="flex flex-1 gap-3 overflow-x-auto p-3">
-          {shots.map((shot) => (
-            <ShotCard
-              key={shot.id}
-              shot={shot}
-              selected={shot.id === selectedId}
-              onSelect={() => onSelect(shot)}
-              onDragStart={() => (dragId.current = shot.id)}
-              onDrop={() => onDrop(shot.id)}
-            />
-          ))}
-        </div>
-      )}
+      <div
+        onDragOver={onAssetDragOver}
+        onDragLeave={() => setDropActive(false)}
+        onDrop={onAssetDrop}
+        className={`min-h-0 flex-1 ${dropActive ? 'rounded ring-2 ring-inset ring-accent' : ''}`}
+      >
+        {shots.length === 0 ? (
+          <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-center">
+            <p className="text-sm text-zinc-500">No shots yet</p>
+            <p className="text-xs text-zinc-600">
+              Drag assets here from the library, or import images/videos — each becomes a shot.
+            </p>
+          </div>
+        ) : (
+          <div className="flex h-full w-full gap-3 overflow-x-auto p-3">
+            {shots.map((shot) => (
+              <ShotCard
+                key={shot.id}
+                shot={shot}
+                selected={shot.id === selectedId}
+                onSelect={() => onSelect(shot)}
+                onDragStart={() => (dragId.current = shot.id)}
+                onDrop={() => onDrop(shot.id)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

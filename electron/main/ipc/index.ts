@@ -7,6 +7,7 @@ import { registerShotHandlers } from './shots'
 import { registerComfyHandlers } from './comfy'
 import { registerSettingsHandlers } from './settings'
 import { registerExportHandlers } from './export'
+import { registerClipboardHandlers } from './clipboard'
 
 export function registerIpcHandlers(): void {
   registerProjectHandlers()
@@ -17,4 +18,5 @@ export function registerIpcHandlers(): void {
   registerComfyHandlers()
   registerSettingsHandlers()
   registerExportHandlers()
+  registerClipboardHandlers()
 }

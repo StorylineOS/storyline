@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { mediaUrl } from '@shared/media'
 import type { Asset, AssetFolder } from '@shared/types'
 import { useAssetStore, folderPath } from '../../store/assetStore'
+import { ASSET_DND_TYPE } from '../../lib/dnd'
 
 /** Left panel: folder navigation + import + a grid of folders and media. */
 export function LibraryPanel(): React.JSX.Element {
@@ -179,7 +180,12 @@ function AssetThumb({
   return (
     <button
       onClick={onSelect}
-      title={asset.name}
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData(ASSET_DND_TYPE, asset.id)
+        e.dataTransfer.effectAllowed = 'copy'
+      }}
+      title={`${asset.name} — drag onto the Shots Sequence to add a shot`}
       className={`group flex flex-col overflow-hidden rounded-md border text-left ${
         selected ? 'border-accent' : 'border-border hover:border-zinc-600'
       }`}

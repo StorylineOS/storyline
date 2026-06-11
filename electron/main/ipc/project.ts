@@ -3,11 +3,13 @@
  * it comes from the renderer) before touching the filesystem.
  */
 import { dialog } from 'electron'
+import { join } from 'node:path'
 import { IpcChannels, type CreateProjectInput } from '@shared/ipc'
-import type { Project, RecentProject } from '@shared/types'
+import type { Project, RecentProject, ProjectMediaDirs } from '@shared/types'
 import { handle } from './handler'
 import { createProject, openProject, getCurrentProject, isProjectFolder } from '../project/store'
 import { listRecents } from '../project/recents'
+import { getOpenProjectFolder } from '../db'
 
 function assertCreateInput(input: unknown): asserts input is CreateProjectInput {
   if (
@@ -51,6 +53,12 @@ export function registerProjectHandlers(): void {
   handle<[], RecentProject[]>(IpcChannels.project.listRecent, () => listRecents())
 
   handle<[], Project | null>(IpcChannels.project.current, () => getCurrentProject())
+
+  handle<[], ProjectMediaDirs>(IpcChannels.project.mediaDirs, () => {
+    const folder = getOpenProjectFolder()
+    if (!folder) throw new Error('No project is open.')
+    return { inputDir: join(folder, 'assets'), outputDir: join(folder, 'takes') }
+  })
 
   handle<[], string | null>(IpcChannels.dialog.pickDirectory, async () => {
     const result = await dialog.showOpenDialog({

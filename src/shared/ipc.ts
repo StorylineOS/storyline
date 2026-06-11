@@ -20,6 +20,7 @@ import type {
   AppSettings,
   ComfyStatus,
   ExportResult,
+  ProjectMediaDirs,
 } from './types'
 import type { Result } from './result'
 
@@ -30,6 +31,10 @@ export const IpcChannels = {
     openDialog: 'project:openDialog',
     listRecent: 'project:listRecent',
     current: 'project:current',
+    mediaDirs: 'project:mediaDirs',
+  },
+  clipboard: {
+    writeText: 'clipboard:writeText',
   },
   assets: {
     importDialog: 'assets:importDialog',
@@ -113,6 +118,11 @@ export interface StorylineApi {
     openDialog(): Promise<Result<Project | null>>
     listRecent(): Promise<Result<RecentProject[]>>
     current(): Promise<Result<Project | null>>
+    /** Absolute input/output dirs of the open project, for sharing with ComfyUI. */
+    mediaDirs(): Promise<Result<ProjectMediaDirs>>
+  }
+  clipboard: {
+    writeText(text: string): Promise<Result<void>>
   }
   assets: {
     /**
