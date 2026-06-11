@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { ComfyStatus, ProjectMediaDirs } from '@shared/types'
 import { useSettingsStore } from '../../store/settingsStore'
+import { useUiStore } from '../../store/uiStore'
 
 /**
  * The Generate tab embeds ComfyUI in an iframe. It polls the backend; when it's not
@@ -9,10 +10,13 @@ import { useSettingsStore } from '../../store/settingsStore'
  */
 export function GeneratePanel(): React.JSX.Element {
   const { comfyUrl, load, setComfyUrl } = useSettingsStore()
+  const linkedWorkflow = useUiStore((s) => s.linkedWorkflow)
+  const setLinkedWorkflow = useUiStore((s) => s.setLinkedWorkflow)
   const [status, setStatus] = useState<ComfyStatus | null>(null)
   const [draftUrl, setDraftUrl] = useState('')
   const [dirs, setDirs] = useState<ProjectMediaDirs | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
+  const [showPaths, setShowPaths] = useState(false)
 
   const copy = (key: string, text: string): void => {
     void window.storyline.clipboard.writeText(text)
@@ -50,8 +54,8 @@ export function GeneratePanel(): React.JSX.Element {
 
   const running = status?.running ?? false
   const url = status?.url ?? comfyUrl
-  const launchCmd = dirs
-    ? `python main.py --input-directory "${dirs.inputDir}" --output-directory "${dirs.outputDir}"`
+  const comfyArgs = dirs
+    ? `--input-directory "${dirs.inputDir}" --output-directory "${dirs.outputDir}"`
     : ''
 
   return (
@@ -87,31 +91,56 @@ export function GeneratePanel(): React.JSX.Element {
 
       {dirs && (
         <div className="border-b border-border px-3 py-2">
-          <div className="mb-1.5 flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <span className="text-[11px] text-zinc-400">
-              Share these folders with ComfyUI — launch it with{' '}
-              <code className="text-zinc-300">--input-directory</code> /{' '}
-              <code className="text-zinc-300">--output-directory</code>:
+              Share these folders with ComfyUI — launch it with these arguments.
             </span>
-            <button
-              onClick={() => copy('cmd', launchCmd)}
-              className="shrink-0 rounded border border-border px-2 py-1 text-[11px] text-zinc-300 hover:bg-surface"
-            >
-              {copied === 'cmd' ? 'Copied' : 'Copy command'}
-            </button>
+            <div className="flex shrink-0 items-center gap-1.5">
+              <button
+                onClick={() => setShowPaths((v) => !v)}
+                className="rounded border border-border px-2 py-1 text-[11px] text-zinc-300 hover:bg-surface"
+              >
+                {showPaths ? 'Hide Paths' : 'View Paths'}
+              </button>
+              <button
+                onClick={() => copy('args', comfyArgs)}
+                className="rounded border border-border px-2 py-1 text-[11px] text-zinc-300 hover:bg-surface"
+              >
+                {copied === 'args' ? 'Copied' : 'Copy arguments'}
+              </button>
+            </div>
           </div>
-          <DirRow
-            label="Input"
-            path={dirs.inputDir}
-            copied={copied === 'input'}
-            onCopy={() => copy('input', dirs.inputDir)}
-          />
-          <DirRow
-            label="Output"
-            path={dirs.outputDir}
-            copied={copied === 'output'}
-            onCopy={() => copy('output', dirs.outputDir)}
-          />
+          {showPaths && (
+            <div className="mt-1.5">
+              <DirRow
+                label="Input"
+                path={dirs.inputDir}
+                copied={copied === 'input'}
+                onCopy={() => copy('input', dirs.inputDir)}
+              />
+              <DirRow
+                label="Output"
+                path={dirs.outputDir}
+                copied={copied === 'output'}
+                onCopy={() => copy('output', dirs.outputDir)}
+              />
+            </div>
+          )}
+        </div>
+      )}
+
+      {linkedWorkflow && (
+        <div className="flex items-center justify-between gap-2 border-b border-accent/40 bg-accent/10 px-3 py-2">
+          <span className="text-[11px] text-zinc-200">
+            Open <span className="font-mono text-zinc-100">{linkedWorkflow}</span> from ComfyUI's{' '}
+            <span className="text-zinc-100">Workflows</span> sidebar to edit this shot, then Save.
+          </span>
+          <button
+            onClick={() => setLinkedWorkflow(null)}
+            className="shrink-0 rounded border border-border px-2 py-1 text-[11px] text-zinc-300 hover:bg-surface"
+          >
+            Dismiss
+          </button>
         </div>
       )}
 

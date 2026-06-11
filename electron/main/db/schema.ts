@@ -5,7 +5,7 @@
  */
 import type BetterSqlite3 from 'better-sqlite3'
 
-export const SCHEMA_VERSION = 4
+export const SCHEMA_VERSION = 5
 
 const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS project (
@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS shots (
   input_asset_id       TEXT,
   hero_take_id         TEXT,
   workflow_template_id TEXT,
+  comfy_workflow_name  TEXT,
   created_at           INTEGER NOT NULL,
   updated_at           INTEGER NOT NULL
 );
@@ -149,6 +150,9 @@ function migrateColumns(db: BetterSqlite3.Database): void {
 
   // v3 → v4: shots gain a source asset reference.
   addColumnIfMissing(db, 'shots', 'input_asset_id', 'TEXT')
+
+  // v4 → v5: shots gain a linked ComfyUI workflow name.
+  addColumnIfMissing(db, 'shots', 'comfy_workflow_name', 'TEXT')
 }
 
 function addColumnIfMissing(

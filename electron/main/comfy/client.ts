@@ -4,13 +4,14 @@
  * we upload a shot's input so it's available in Comfy, and pull the latest output
  * back as a take. Uses Comfy's HTTP API: /system_stats, /upload/image, /history, /view.
  */
-import { join, extname, basename } from 'node:path'
-import { readFileSync, writeFileSync } from 'node:fs'
+import { join, extname } from 'node:path'
+import { writeFileSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
-import type { Take, ComfyStatus, AssetKind } from '@shared/types'
+import type { Take, ComfyStatus, AssetKind, Shot } from '@shared/types'
 import { getSettings } from '../settings/store'
 import { getOpenProjectFolder } from '../db'
-import { addTake, shotInputAbsPath } from '../shots/store'
+import { addTake, getShotById, linkWorkflow, shotInputAsset } from '../shots/store'
+import { getCurrentProject } from '../project/store'
 
 function baseUrl(): string {
   return getSettings().comfyUrl.replace(/\/+$/, '')
@@ -36,17 +37,80 @@ export async function ping(): Promise<ComfyStatus> {
   }
 }
 
-/** Upload a shot's input file into ComfyUI's input folder so it can be used there. */
-export async function sendShotInput(shotId: string): Promise<string> {
-  const absPath = shotInputAbsPath(shotId)
-  const buf = readFileSync(absPath)
-  const form = new FormData()
-  form.append('image', new Blob([buf]), basename(absPath))
-  form.append('overwrite', 'true')
-  const res = await fetch(`${baseUrl()}/upload/image`, { method: 'POST', body: form })
-  if (!res.ok) throw new Error(`ComfyUI upload failed (${res.status}). Is it running?`)
-  const json = (await res.json()) as { name?: string }
-  return json.name ?? basename(absPath)
+function sanitizeSegment(name: string): string {
+  return (
+    name
+      .replace(/[\\/]+/g, '-')
+      .replace(/\s+/g, ' ')
+      .trim() || 'untitled'
+  )
+}
+
+/** A minimal, guaranteed-to-load LiteGraph workflow with a Note titled after the shot. */
+function buildSeedWorkflow(shotName: string, inputFileName: string | null): unknown {
+  const noteText =
+    `Storyline shot: ${shotName}` +
+    (inputFileName ? `\nInput file: ${inputFileName}` : '') +
+    `\n\nBuild this shot's workflow here, then Save (the link persists).`
+  return {
+    last_node_id: 1,
+    last_link_id: 0,
+    nodes: [
+      {
+        id: 1,
+        type: 'Note',
+        pos: [80, 80],
+        size: [380, 160],
+        flags: {},
+        order: 0,
+        mode: 0,
+        inputs: [],
+        outputs: [],
+        title: shotName,
+        properties: {},
+        widgets_values: [noteText],
+        color: '#432',
+        bgcolor: '#653',
+      },
+    ],
+    links: [],
+    groups: [],
+    config: {},
+    extra: {},
+    version: 0.4,
+  }
+}
+
+/**
+ * Link a shot to a ComfyUI workflow: create a workflow named after the shot (seeded
+ * with a Note) via Comfy's userdata API, and remember the name on the shot. If the
+ * shot is already linked, just return it (don't clobber the user's edits).
+ */
+export async function linkShotWorkflow(shotId: string): Promise<Shot> {
+  const shot = getShotById(shotId)
+  if (shot.comfyWorkflowName) return shot
+
+  const project = getCurrentProject()
+  const projectSeg = sanitizeSegment(project?.name ?? 'Project')
+  const shotSeg = sanitizeSegment(shot.name)
+  const name = `Storyline/${projectSeg}/${shotSeg} (${shot.id.slice(0, 6)})`
+
+  const input = shotInputAsset(shotId)
+  const workflow = buildSeedWorkflow(shot.name, input?.fileName ?? null)
+
+  const file = encodeURIComponent(`workflows/${name}.json`)
+  const res = await fetch(`${baseUrl()}/userdata/${file}?overwrite=false`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(workflow),
+  })
+  // 409 = already exists (fine — reuse it). Other failures are real.
+  if (!res.ok && res.status !== 409) {
+    throw new Error(
+      `Could not save the workflow to ComfyUI (${res.status}). Make sure it's running and recent enough to support the userdata API.`,
+    )
+  }
+  return linkWorkflow(shotId, name)
 }
 
 interface OutputFile {

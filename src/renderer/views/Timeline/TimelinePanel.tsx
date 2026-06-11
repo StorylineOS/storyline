@@ -141,12 +141,21 @@ function ShotCard({
   const asset = useAssetStore((s) => s.assets.find((a) => a.id === shot.inputAssetId))
   const output = useShotStore((s) => s.outputs[shot.id])
   const busy = useShotStore((s) => s.busyId === shot.id)
-  const { rename, remove, sendToComfy, pullResult } = useShotStore()
+  const { rename, remove, linkShot, pullResult } = useShotStore()
   const setMode = useUiStore((s) => s.setMode)
+  const setLinkedWorkflow = useUiStore((s) => s.setLinkedWorkflow)
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(shot.name)
   const inputUrl = asset ? mediaUrl(asset.filePath) : null
   const outputUrl = output ? mediaUrl(output.filePath) : null
+  const linked = !!shot.comfyWorkflowName
+
+  const onLink = async (e: React.MouseEvent): Promise<void> => {
+    e.stopPropagation()
+    const result = await linkShot(shot.id)
+    setLinkedWorkflow(result?.comfyWorkflowName ?? shot.comfyWorkflowName)
+    setMode('generate')
+  }
 
   const commitName = (): void => {
     setEditing(false)
@@ -189,9 +198,10 @@ function ShotCard({
               e.stopPropagation()
               setEditing(true)
             }}
-            className="truncate text-xs font-medium text-zinc-200"
+            className="flex items-center gap-1 truncate text-xs font-medium text-zinc-200"
             title="Double-click to rename"
           >
+            {linked && <span title="Linked to a ComfyUI workflow">🔗</span>}
             {shot.name}
           </span>
         )}
@@ -240,14 +250,10 @@ function ShotCard({
         <div className="flex gap-1 border-t border-border p-1">
           <button
             disabled={busy}
-            onClick={(e) => {
-              e.stopPropagation()
-              void sendToComfy(shot.id)
-              setMode('generate')
-            }}
+            onClick={(e) => void onLink(e)}
             className="flex-1 rounded bg-accent px-1 py-1 text-[10px] font-medium text-white disabled:opacity-40"
           >
-            Send to ComfyUI
+            {busy ? '…' : linked ? 'Open Workflow' : 'Link'}
           </button>
           <button
             disabled={busy}

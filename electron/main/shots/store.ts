@@ -18,6 +18,7 @@ interface ShotRow {
   input_asset_id: string | null
   hero_take_id: string | null
   workflow_template_id: string | null
+  comfy_workflow_name: string | null
   created_at: number
   updated_at: number
 }
@@ -42,6 +43,7 @@ function rowToShot(row: ShotRow): Shot {
     inputAssetId: row.input_asset_id,
     heroTakeId: row.hero_take_id,
     workflowTemplateId: row.workflow_template_id,
+    comfyWorkflowName: row.comfy_workflow_name,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -113,13 +115,14 @@ function createShot(asset: { id: string; kind: AssetKind }): Shot {
     inputAssetId: asset.id,
     heroTakeId: null,
     workflowTemplateId: null,
+    comfyWorkflowName: null,
     createdAt: now,
     updatedAt: now,
   }
   db.prepare(
     `INSERT INTO shots
-       (id, sequence_id, name, kind, position, input_asset_id, hero_take_id, workflow_template_id, created_at, updated_at)
-     VALUES (@id, @sequenceId, @name, @kind, @position, @inputAssetId, @heroTakeId, @workflowTemplateId, @createdAt, @updatedAt)`,
+       (id, sequence_id, name, kind, position, input_asset_id, hero_take_id, workflow_template_id, comfy_workflow_name, created_at, updated_at)
+     VALUES (@id, @sequenceId, @name, @kind, @position, @inputAssetId, @heroTakeId, @workflowTemplateId, @comfyWorkflowName, @createdAt, @updatedAt)`,
   ).run(shot)
   return shot
 }
@@ -228,6 +231,31 @@ export function addTake(input: {
     comfyPromptId: input.comfyPromptId,
     createdAt: now,
   }
+}
+
+/** Read a single shot (throws if missing). */
+export function getShotById(id: string): Shot {
+  return getShot(id)
+}
+
+/** Record the ComfyUI workflow this shot is linked to. */
+export function linkWorkflow(shotId: string, name: string): Shot {
+  getShot(shotId)
+  getDb()
+    .prepare('UPDATE shots SET comfy_workflow_name = ?, updated_at = ? WHERE id = ?')
+    .run(name, Date.now(), shotId)
+  return getShot(shotId)
+}
+
+/** The shot's input asset filename (basename) and kind, if it has one. */
+export function shotInputAsset(shotId: string): { fileName: string; kind: AssetKind } | null {
+  const shot = getShot(shotId)
+  if (!shot.inputAssetId) return null
+  const asset = getDb()
+    .prepare('SELECT file_path, kind FROM assets WHERE id = ?')
+    .get(shot.inputAssetId) as { file_path: string; kind: AssetKind } | undefined
+  if (!asset) return null
+  return { fileName: asset.file_path.split('/').pop() ?? asset.file_path, kind: asset.kind }
 }
 
 /** Absolute path of a shot's input asset (for uploading to ComfyUI). */

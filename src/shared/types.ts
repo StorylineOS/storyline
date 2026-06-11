@@ -48,6 +48,8 @@ export interface Shot {
   heroTakeId: string | null
   /** Workflow template this shot generates with, if chosen. */
   workflowTemplateId: string | null
+  /** The ComfyUI workflow (userdata name) this shot is linked to, if any. */
+  comfyWorkflowName: string | null
   createdAt: number
   updatedAt: number
 }

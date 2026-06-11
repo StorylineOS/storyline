@@ -49,7 +49,7 @@ const api: StorylineApi = {
   },
   comfy: {
     status: () => ipcRenderer.invoke(IpcChannels.comfy.status),
-    sendShot: (shotId: string) => ipcRenderer.invoke(IpcChannels.comfy.sendShot, shotId),
+    linkShot: (shotId: string) => ipcRenderer.invoke(IpcChannels.comfy.linkShot, shotId),
     pullLatest: (shotId: string) => ipcRenderer.invoke(IpcChannels.comfy.pullLatest, shotId),
   },
   settings: {

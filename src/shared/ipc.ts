@@ -59,7 +59,7 @@ export const IpcChannels = {
   },
   comfy: {
     status: 'comfy:status',
-    sendShot: 'comfy:sendShot',
+    linkShot: 'comfy:linkShot',
     pullLatest: 'comfy:pullLatest',
   },
   settings: {
@@ -162,8 +162,8 @@ export interface StorylineApi {
   comfy: {
     /** Is the configured ComfyUI reachable? */
     status(): Promise<Result<ComfyStatus>>
-    /** Upload a shot's input into ComfyUI so it can be used there; returns the name. */
-    sendShot(shotId: string): Promise<Result<string>>
+    /** Create/ensure this shot's linked ComfyUI workflow; returns the updated shot. */
+    linkShot(shotId: string): Promise<Result<Shot>>
     /** Pull ComfyUI's latest output and attach it to the shot as its Output take. */
     pullLatest(shotId: string): Promise<Result<Take>>
   }

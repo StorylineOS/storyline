@@ -24,7 +24,7 @@ interface ShotState {
   rename: (id: string, name: string) => Promise<void>
   reorder: (orderedIds: string[]) => Promise<void>
   remove: (id: string) => Promise<void>
-  sendToComfy: (id: string) => Promise<void>
+  linkShot: (id: string) => Promise<Shot | null>
   pullResult: (id: string) => Promise<void>
   exportShots: () => Promise<void>
   select: (id: string | null) => void
@@ -61,15 +61,23 @@ export const useShotStore = create<ShotState>((set) => ({
     }
   },
 
-  sendToComfy: async (id) => {
+  linkShot: async (id) => {
     set({ busyId: id, error: null })
     try {
-      const res = await window.storyline.comfy.sendShot(id)
-      if (!res.ok) set({ error: res.error })
+      const res = await window.storyline.comfy.linkShot(id)
+      if (!res.ok) {
+        set({ error: res.error, busyId: null })
+        return null
+      }
+      const shot = res.value
+      set((s) => ({
+        shots: s.shots.map((sh) => (sh.id === id ? shot : sh)),
+        busyId: null,
+      }))
+      return shot
     } catch (e) {
-      set({ error: ipcErrorMessage(e) })
-    } finally {
-      set({ busyId: null })
+      set({ error: ipcErrorMessage(e), busyId: null })
+      return null
     }
   },
 
