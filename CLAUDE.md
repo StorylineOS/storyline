@@ -87,7 +87,9 @@ power users; it is never the primary path.
   handlers use the `handle()` wrapper and return `Result<T>` — errors never cross the bridge raw.
 - **Validate IPC input in main.** Renderer payloads are untrusted; check them before use.
 - **Electron security baseline:** `contextIsolation: true`, `nodeIntegration: false`,
-  `sandbox: true`. External URLs (ComfyUI) open in the OS browser, never in the app window.
+  `sandbox: true`. The one deliberate deviation: `webviewTag: true`, solely so the Generate tab
+  can embed and drive the user's own local ComfyUI via a `<webview>` (we never load untrusted
+  remote content there).
 - **Layering rule** (ESLint-enforced): renderer must not import Node/Electron/main modules.
 - **State.** Zustand stores are small and feature-scoped. Components render; stores + IPC do work.
 - **Engine isolation.** All Comfy logic behind `comfy/`, all ffmpeg behind `export/`. No Comfy URLs

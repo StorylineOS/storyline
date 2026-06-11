@@ -1,7 +1,34 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ComfyStatus, ProjectMediaDirs } from '@shared/types'
 import { useSettingsStore } from '../../store/settingsStore'
 import { useUiStore } from '../../store/uiStore'
+import type { ComfyWebview } from '../../types/webview'
+
+/**
+ * Code injected INTO the embedded ComfyUI page (via webview.executeJavaScript, which
+ * bypasses cross-origin limits in Electron) to open a saved workflow on the canvas.
+ * Waits for the frontend, fetches the workflow same-origin from userdata, and loads it.
+ * Best-effort: leans on `window.app.loadGraphData`, which varies by Comfy version.
+ */
+function openWorkflowScript(name: string): string {
+  const n = JSON.stringify(name)
+  return `(async () => {
+    const waitFor = async (fn) => {
+      const start = Date.now();
+      while (Date.now() - start < 8000) {
+        try { if (fn()) return true; } catch (e) {}
+        await new Promise((r) => setTimeout(r, 200));
+      }
+      return false;
+    };
+    if (!(await waitFor(() => window.app && typeof window.app.loadGraphData === 'function'))) return;
+    try {
+      const res = await fetch('/userdata/' + encodeURIComponent('workflows/' + ${n} + '.json'));
+      if (!res.ok) return;
+      window.app.loadGraphData(await res.json());
+    } catch (e) { console.error('[storyline] open workflow failed', e); }
+  })();`
+}
 
 /**
  * The Generate tab embeds ComfyUI in an iframe. It polls the backend; when it's not
@@ -17,6 +44,11 @@ export function GeneratePanel(): React.JSX.Element {
   const [dirs, setDirs] = useState<ProjectMediaDirs | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
   const [showPaths, setShowPaths] = useState(false)
+  const webviewRef = useRef<ComfyWebview | null>(null)
+  const [webviewReady, setWebviewReady] = useState(false)
+
+  const running = status?.running ?? false
+  const url = status?.url ?? comfyUrl
 
   const copy = (key: string, text: string): void => {
     void window.storyline.clipboard.writeText(text)
@@ -52,11 +84,25 @@ export function GeneratePanel(): React.JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [comfyUrl])
 
-  const running = status?.running ?? false
-  const url = status?.url ?? comfyUrl
-  // Best-effort: ask ComfyUI to open the linked workflow by name. Stock Comfy may
-  // ignore the param (the banner is the reliable fallback); newer builds honour it.
-  const iframeSrc = linkedWorkflow ? `${url}/?workflow=${encodeURIComponent(linkedWorkflow)}` : url
+  // Track when the embedded ComfyUI page has loaded enough to drive.
+  useEffect(() => {
+    const wv = webviewRef.current
+    if (!wv) {
+      setWebviewReady(false)
+      return
+    }
+    const onReady = (): void => setWebviewReady(true)
+    wv.addEventListener('dom-ready', onReady)
+    return () => wv.removeEventListener('dom-ready', onReady)
+  }, [running])
+
+  // When a shot is linked (or changes), drive the embedded ComfyUI to open it.
+  useEffect(() => {
+    if (webviewReady && linkedWorkflow && webviewRef.current) {
+      void webviewRef.current.executeJavaScript(openWorkflowScript(linkedWorkflow))
+    }
+  }, [webviewReady, linkedWorkflow])
+
   const comfyArgs = dirs
     ? `--input-directory "${dirs.inputDir}" --output-directory "${dirs.outputDir}"`
     : ''
@@ -149,10 +195,10 @@ export function GeneratePanel(): React.JSX.Element {
 
       <div className="relative flex-1">
         {running ? (
-          <iframe
-            key={iframeSrc}
-            title="ComfyUI"
-            src={iframeSrc}
+          <webview
+            ref={webviewRef}
+            src={url}
+            partition="persist:comfyui"
             className="h-full w-full border-0 bg-white"
           />
         ) : (

@@ -28,6 +28,9 @@ function createMainWindow(): BrowserWindow {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      // Enables the <webview> used to embed + drive the user's local ComfyUI
+      // (Generate tab). We only ever load the user-configured Comfy URL in it.
+      webviewTag: true,
     },
   })
 
