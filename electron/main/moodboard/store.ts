@@ -15,7 +15,7 @@ import type {
 import type { MoodboardItemPatch } from '@shared/ipc'
 import { getDb } from '../db'
 import { importViaDialog } from '../assets/store'
-import { addFromAsset as createShotFromAsset } from '../shots/store'
+import { addFromAsset as createFrameFromAsset } from '../frames/store'
 
 const DEFAULT_SIZE: Record<'image' | 'video' | 'audio', { w: number; h: number }> = {
   image: { w: 320, h: 180 },
@@ -38,7 +38,7 @@ interface ItemRow {
   project_id: string
   type: MoodboardItemType
   asset_id: string | null
-  shot_id: string | null
+  frame_id: string | null
   parent_id: string | null
   data: string | null
   x: number
@@ -67,7 +67,7 @@ function rowToItem(row: ItemRow): MoodboardItem {
     projectId: row.project_id,
     type: row.type,
     assetId: row.asset_id,
-    shotId: row.shot_id,
+    frameId: row.frame_id,
     parentId: row.parent_id,
     data: row.data ? (JSON.parse(row.data) as MoodboardItemData) : {},
     x: row.x,
@@ -118,8 +118,8 @@ function insertItem(item: MoodboardItem): MoodboardItem {
   getDb()
     .prepare(
       `INSERT INTO moodboard_items
-         (id, project_id, type, asset_id, shot_id, parent_id, data, x, y, width, height, rotation, z_index, created_at, updated_at)
-       VALUES (@id, @projectId, @type, @assetId, @shotId, @parentId, @data, @x, @y, @width, @height, @rotation, @zIndex, @createdAt, @updatedAt)`,
+         (id, project_id, type, asset_id, frame_id, parent_id, data, x, y, width, height, rotation, z_index, created_at, updated_at)
+       VALUES (@id, @projectId, @type, @assetId, @frameId, @parentId, @data, @x, @y, @width, @height, @rotation, @zIndex, @createdAt, @updatedAt)`,
     )
     .run({ ...item, data: JSON.stringify(item.data) })
   return item
@@ -147,7 +147,7 @@ export function addAssetItem(assetId: string, x: number, y: number): MoodboardIt
     projectId: projectId(),
     type: 'asset',
     assetId,
-    shotId: null,
+    frameId: null,
     parentId: null,
     data: {},
     x,
@@ -168,7 +168,7 @@ export function addTextItem(x: number, y: number): MoodboardItem {
     projectId: projectId(),
     type: 'text',
     assetId: null,
-    shotId: null,
+    frameId: null,
     parentId: null,
     data: { text: { ...DEFAULT_TEXT } },
     x,
@@ -182,15 +182,15 @@ export function addTextItem(x: number, y: number): MoodboardItem {
   })
 }
 
-/** Place an existing shot as a node on the canvas. */
-export function addShotItem(shotId: string, x: number, y: number): MoodboardItem {
+/** Place an existing frame as a node on the canvas. */
+export function addFrameItem(frameId: string, x: number, y: number): MoodboardItem {
   const now = Date.now()
   return insertItem({
     id: randomUUID(),
     projectId: projectId(),
-    type: 'shot',
+    type: 'frame',
     assetId: null,
-    shotId,
+    frameId,
     parentId: null,
     data: {},
     x,
@@ -204,13 +204,13 @@ export function addShotItem(shotId: string, x: number, y: number): MoodboardItem
   })
 }
 
-/** Create a shot from a library asset AND place a shot node on the canvas. */
-export function addShotFromAsset(assetId: string, x: number, y: number): MoodboardItem {
-  const shot = createShotFromAsset(assetId)
-  return addShotItem(shot.id, x, y)
+/** Create a frame from a library asset AND place a frame node on the canvas. */
+export function addFrameFromAsset(assetId: string, x: number, y: number): MoodboardItem {
+  const frame = createFrameFromAsset(assetId)
+  return addFrameItem(frame.id, x, y)
 }
 
-/** Add a resizable layer group container (shots can be dropped inside it). */
+/** Add a resizable layer group container (frames can be dropped inside it). */
 export function addLayer(x: number, y: number): MoodboardItem {
   const now = Date.now()
   return insertItem({
@@ -218,7 +218,7 @@ export function addLayer(x: number, y: number): MoodboardItem {
     projectId: projectId(),
     type: 'layer',
     assetId: null,
-    shotId: null,
+    frameId: null,
     parentId: null,
     data: { name: 'Layer' },
     x,
@@ -226,14 +226,14 @@ export function addLayer(x: number, y: number): MoodboardItem {
     width: 420,
     height: 300,
     rotation: 0,
-    // Layers sit behind everything else so shots render on top of them.
+    // Layers sit behind everything else so frames render on top of them.
     zIndex: 0,
     createdAt: now,
     updatedAt: now,
   })
 }
 
-/** Add an empty Preview node (displays a connected shot's hero output). */
+/** Add an empty Preview node (displays a connected frame's hero output). */
 export function addPreview(x: number, y: number): MoodboardItem {
   const now = Date.now()
   return insertItem({
@@ -241,7 +241,7 @@ export function addPreview(x: number, y: number): MoodboardItem {
     projectId: projectId(),
     type: 'preview',
     assetId: null,
-    shotId: null,
+    frameId: null,
     parentId: null,
     data: {},
     x,
@@ -322,7 +322,7 @@ export function createConnector(
     toItemId,
     label: null,
     // Remember which handles the edge attached to so it re-renders on the same
-    // sides (shots have several handles: 'out' plus visual 'vl'/'vr'/'vb').
+    // sides (frames have several handles: 'out' plus visual 'vl'/'vr'/'vb').
     data: { sourceHandle, targetHandle },
     createdAt: Date.now(),
   }

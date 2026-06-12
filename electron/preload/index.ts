@@ -37,51 +37,51 @@ const api: StorylineApi = {
     rename: (id: string, name: string) => ipcRenderer.invoke(IpcChannels.folders.rename, id, name),
     delete: (id: string) => ipcRenderer.invoke(IpcChannels.folders.delete, id),
   },
-  shots: {
-    list: () => ipcRenderer.invoke(IpcChannels.shots.list),
-    importAsShots: () => ipcRenderer.invoke(IpcChannels.shots.importAsShots),
-    addFromAsset: (assetId: string) => ipcRenderer.invoke(IpcChannels.shots.addFromAsset, assetId),
-    rename: (id: string, name: string) => ipcRenderer.invoke(IpcChannels.shots.rename, id, name),
-    reorder: (orderedIds: string[]) => ipcRenderer.invoke(IpcChannels.shots.reorder, orderedIds),
-    delete: (id: string) => ipcRenderer.invoke(IpcChannels.shots.delete, id),
+  frames: {
+    list: () => ipcRenderer.invoke(IpcChannels.frames.list),
+    importAsFrames: () => ipcRenderer.invoke(IpcChannels.frames.importAsFrames),
+    addFromAsset: (assetId: string) => ipcRenderer.invoke(IpcChannels.frames.addFromAsset, assetId),
+    rename: (id: string, name: string) => ipcRenderer.invoke(IpcChannels.frames.rename, id, name),
+    reorder: (orderedIds: string[]) => ipcRenderer.invoke(IpcChannels.frames.reorder, orderedIds),
+    delete: (id: string) => ipcRenderer.invoke(IpcChannels.frames.delete, id),
     setHero: (id: string, takeId: string | null) =>
-      ipcRenderer.invoke(IpcChannels.shots.setHero, id, takeId),
-    listTakes: (shotId: string) => ipcRenderer.invoke(IpcChannels.shots.listTakes, shotId),
-    heroTakes: () => ipcRenderer.invoke(IpcChannels.shots.heroTakes),
-    listInputs: () => ipcRenderer.invoke(IpcChannels.shots.listInputs),
-    addInput: (shotId: string, assetId: string) =>
-      ipcRenderer.invoke(IpcChannels.shots.addInput, shotId, assetId),
-    removeInput: (shotId: string, assetId: string) =>
-      ipcRenderer.invoke(IpcChannels.shots.removeInput, shotId, assetId),
-    reorderInputs: (shotId: string, orderedAssetIds: string[]) =>
-      ipcRenderer.invoke(IpcChannels.shots.reorderInputs, shotId, orderedAssetIds),
-    listAllTakes: () => ipcRenderer.invoke(IpcChannels.shots.listAllTakes),
-    deleteTake: (takeId: string) => ipcRenderer.invoke(IpcChannels.shots.deleteTake, takeId),
+      ipcRenderer.invoke(IpcChannels.frames.setHero, id, takeId),
+    listTakes: (frameId: string) => ipcRenderer.invoke(IpcChannels.frames.listTakes, frameId),
+    heroTakes: () => ipcRenderer.invoke(IpcChannels.frames.heroTakes),
+    listInputs: () => ipcRenderer.invoke(IpcChannels.frames.listInputs),
+    addInput: (frameId: string, assetId: string) =>
+      ipcRenderer.invoke(IpcChannels.frames.addInput, frameId, assetId),
+    removeInput: (frameId: string, assetId: string) =>
+      ipcRenderer.invoke(IpcChannels.frames.removeInput, frameId, assetId),
+    reorderInputs: (frameId: string, orderedAssetIds: string[]) =>
+      ipcRenderer.invoke(IpcChannels.frames.reorderInputs, frameId, orderedAssetIds),
+    listAllTakes: () => ipcRenderer.invoke(IpcChannels.frames.listAllTakes),
+    deleteTake: (takeId: string) => ipcRenderer.invoke(IpcChannels.frames.deleteTake, takeId),
   },
   comfy: {
     status: () => ipcRenderer.invoke(IpcChannels.comfy.status),
-    linkShot: (shotId: string) => ipcRenderer.invoke(IpcChannels.comfy.linkShot, shotId),
-    pullLatest: (shotId: string) => ipcRenderer.invoke(IpcChannels.comfy.pullLatest, shotId),
+    linkFrame: (frameId: string) => ipcRenderer.invoke(IpcChannels.comfy.linkFrame, frameId),
+    pullLatest: (frameId: string) => ipcRenderer.invoke(IpcChannels.comfy.pullLatest, frameId),
     latestRun: () => ipcRenderer.invoke(IpcChannels.comfy.latestRun),
-    captureOutput: (shotId: string, output: ComfyOutput) =>
-      ipcRenderer.invoke(IpcChannels.comfy.captureOutput, shotId, output),
+    captureOutput: (frameId: string, output: ComfyOutput) =>
+      ipcRenderer.invoke(IpcChannels.comfy.captureOutput, frameId, output),
   },
   settings: {
     get: () => ipcRenderer.invoke(IpcChannels.settings.get),
     setComfyUrl: (url: string) => ipcRenderer.invoke(IpcChannels.settings.setComfyUrl, url),
   },
   export: {
-    exportShots: () => ipcRenderer.invoke(IpcChannels.export.exportShots),
+    exportFrames: () => ipcRenderer.invoke(IpcChannels.export.exportFrames),
   },
   moodboard: {
     list: () => ipcRenderer.invoke(IpcChannels.moodboard.list),
     addAsset: (assetId: string, x: number, y: number) =>
       ipcRenderer.invoke(IpcChannels.moodboard.addAsset, assetId, x, y),
     addText: (x: number, y: number) => ipcRenderer.invoke(IpcChannels.moodboard.addText, x, y),
-    addShotFromAsset: (assetId: string, x: number, y: number) =>
-      ipcRenderer.invoke(IpcChannels.moodboard.addShotFromAsset, assetId, x, y),
-    addShotItem: (shotId: string, x: number, y: number) =>
-      ipcRenderer.invoke(IpcChannels.moodboard.addShotItem, shotId, x, y),
+    addFrameFromAsset: (assetId: string, x: number, y: number) =>
+      ipcRenderer.invoke(IpcChannels.moodboard.addFrameFromAsset, assetId, x, y),
+    addFrameItem: (frameId: string, x: number, y: number) =>
+      ipcRenderer.invoke(IpcChannels.moodboard.addFrameItem, frameId, x, y),
     addPreview: (x: number, y: number) =>
       ipcRenderer.invoke(IpcChannels.moodboard.addPreview, x, y),
     addLayer: (x: number, y: number) => ipcRenderer.invoke(IpcChannels.moodboard.addLayer, x, y),

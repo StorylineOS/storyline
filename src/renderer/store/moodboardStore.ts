@@ -8,7 +8,7 @@ import { create } from 'zustand'
 import type { MoodboardItem, MoodboardConnector } from '@shared/types'
 import type { MoodboardItemPatch } from '@shared/ipc'
 import { ipcErrorMessage } from '../lib/ipcError'
-import { useShotStore } from './shotStore'
+import { useFrameStore } from './frameStore'
 
 interface MoodboardState {
   items: MoodboardItem[]
@@ -19,12 +19,12 @@ interface MoodboardState {
   load: () => Promise<void>
   addAssetAt: (assetId: string, x: number, y: number) => Promise<void>
   addTextAt: (x: number, y: number) => Promise<void>
-  addShotFromAsset: (assetId: string, x: number, y: number) => Promise<void>
-  addShotItem: (shotId: string, x: number, y: number) => Promise<void>
+  addFrameFromAsset: (assetId: string, x: number, y: number) => Promise<void>
+  addFrameItem: (frameId: string, x: number, y: number) => Promise<void>
   addPreview: (x: number, y: number) => Promise<void>
   addLayer: (x: number, y: number) => Promise<void>
   /** Place an existing asset on the board, parented to a layer when given. */
-  addShotFromAssetInLayer: (
+  addFrameFromAssetInLayer: (
     assetId: string,
     x: number,
     y: number,
@@ -95,9 +95,9 @@ export const useMoodboardStore = create<MoodboardState>((set) => ({
     }
   },
 
-  addShotFromAsset: async (assetId, x, y) => {
+  addFrameFromAsset: async (assetId, x, y) => {
     try {
-      const res = await window.storyline.moodboard.addShotFromAsset(assetId, x, y)
+      const res = await window.storyline.moodboard.addFrameFromAsset(assetId, x, y)
       if (!res.ok) return set({ error: res.error })
       set((s) => ({ items: [...s.items, res.value] }))
     } catch (e) {
@@ -105,9 +105,9 @@ export const useMoodboardStore = create<MoodboardState>((set) => ({
     }
   },
 
-  addShotItem: async (shotId, x, y) => {
+  addFrameItem: async (frameId, x, y) => {
     try {
-      const res = await window.storyline.moodboard.addShotItem(shotId, x, y)
+      const res = await window.storyline.moodboard.addFrameItem(frameId, x, y)
       if (!res.ok) return set({ error: res.error })
       set((s) => ({ items: [...s.items, res.value] }))
     } catch (e) {
@@ -135,9 +135,9 @@ export const useMoodboardStore = create<MoodboardState>((set) => ({
     }
   },
 
-  addShotFromAssetInLayer: async (assetId, x, y, parentId) => {
+  addFrameFromAssetInLayer: async (assetId, x, y, parentId) => {
     try {
-      const res = await window.storyline.moodboard.addShotFromAsset(assetId, x, y)
+      const res = await window.storyline.moodboard.addFrameFromAsset(assetId, x, y)
       if (!res.ok) return set({ error: res.error })
       let item = res.value
       if (parentId) {
@@ -145,9 +145,9 @@ export const useMoodboardStore = create<MoodboardState>((set) => ({
         if (patched.ok) item = patched.value
       }
       set((s) => ({ items: [...s.items, item] }))
-      // The shot + its input row were created in main; refresh the shot store so
-      // the new ShotNode shows its name, input asset, and (future) takes.
-      await useShotStore.getState().load()
+      // The frame + its input row were created in main; refresh the frame store so
+      // the new FrameNode shows its name, input asset, and (future) takes.
+      await useFrameStore.getState().load()
     } catch (e) {
       set({ error: ipcErrorMessage(e) })
     }

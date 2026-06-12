@@ -2,12 +2,12 @@
  * Domain types shared by the main and renderer processes.
  *
  * The mental model (see CLAUDE.md):
- *   Project → Sequence → Shot → Take[]
- *   A Shot is a *slot with a history of takes*, never a single file.
- *   The timeline points at a Shot's `heroTakeId` (the current chosen take).
+ *   Project → Sequence → Frame → Take[]
+ *   A Frame is a *slot with a history of takes*, never a single file.
+ *   The timeline points at a Frame's `heroTakeId` (the current chosen take).
  */
 
-export type ShotKind = 'image' | 'video'
+export type FrameKind = 'image' | 'video'
 export type AssetKind = 'image' | 'video' | 'audio'
 
 /** A project is a portable `.storyline` folder; this is its DB-backed metadata. */
@@ -35,37 +35,37 @@ export interface Sequence {
   position: number
 }
 
-export interface Shot {
+export interface Frame {
   id: string
   sequenceId: string
   name: string
-  kind: ShotKind
+  kind: FrameKind
   /** Order within the sequence. */
   position: number
-  /** The imported source asset this shot edits (its Input row), if any. */
+  /** The imported source asset this frame edits (its Input row), if any. */
   inputAssetId: string | null
   /** Currently chosen take placed on the timeline, if any. */
   heroTakeId: string | null
-  /** Workflow template this shot generates with, if chosen. */
+  /** Workflow template this frame generates with, if chosen. */
   workflowTemplateId: string | null
-  /** The ComfyUI workflow (userdata name) this shot is linked to, if any. */
+  /** The ComfyUI workflow (userdata name) this frame is linked to, if any. */
   comfyWorkflowName: string | null
   createdAt: number
   updatedAt: number
 }
 
-/** A library asset used as one of a shot's inputs (a shot can have several). */
-export interface ShotInput {
+/** A library asset used as one of a frame's inputs (a frame can have several). */
+export interface FrameInput {
   id: string
-  shotId: string
+  frameId: string
   assetId: string
   position: number
 }
 
-/** Every ComfyUI render of a shot becomes an immutable Take. */
+/** Every ComfyUI render of a frame becomes an immutable Take. */
 export interface Take {
   id: string
-  shotId: string
+  frameId: string
   /** Relative path under the project's `takes/` folder. */
   filePath: string
   kind: AssetKind
@@ -102,10 +102,10 @@ export interface Asset {
 
 /**
  * An item on the unified canvas. Beyond ideation items (asset/text), the canvas
- * also hosts the production graph: `shot` nodes (input/output handles), `layer`
- * group containers, and `preview` nodes that display a connected shot's output.
+ * also hosts the production graph: `frame` nodes (input/output handles), `layer`
+ * group containers, and `preview` nodes that display a connected frame's output.
  */
-export type MoodboardItemType = 'asset' | 'text' | 'shot' | 'layer' | 'preview'
+export type MoodboardItemType = 'asset' | 'text' | 'frame' | 'layer' | 'preview'
 
 export interface TextItemData {
   text: string
@@ -122,6 +122,8 @@ export interface MoodboardItemData {
   text?: TextItemData
   /** Display name for a layer group. */
   name?: string
+  /** Accent color (hex) for a layer group. */
+  color?: string
 }
 
 export interface MoodboardItem {
@@ -130,8 +132,8 @@ export interface MoodboardItem {
   type: MoodboardItemType
   /** Set when type === 'asset'. */
   assetId: string | null
-  /** Set when type === 'shot' (and reused by 'preview' resolution). */
-  shotId: string | null
+  /** Set when type === 'frame' (and reused by 'preview' resolution). */
+  frameId: string | null
   /** Containing layer item id, if this item lives inside a layer group. */
   parentId: string | null
   data: MoodboardItemData
@@ -162,11 +164,11 @@ export interface MoodboardSnapshot {
   connectors: MoodboardConnector[]
 }
 
-/** A placed clip on the timeline, pointing at a shot's hero take. */
+/** A placed clip on the timeline, pointing at a frame's hero take. */
 export interface TimelineClip {
   id: string
   sequenceId: string
-  shotId: string
+  frameId: string
   track: number
   startTime: number
   inPoint: number
@@ -228,12 +230,12 @@ export interface ProjectMediaDirs {
   outputDir: string
 }
 
-/** Summary of an "export shots to folder" run. */
+/** Summary of an "export frames to folder" run. */
 export interface ExportResult {
   /** Absolute directory the files were written to. */
   dir: string
-  /** Count of shot outputs exported. */
+  /** Count of frame outputs exported. */
   exported: number
-  /** Names of shots skipped because they had no Output yet. */
+  /** Names of frames skipped because they had no Output yet. */
   skipped: string[]
 }

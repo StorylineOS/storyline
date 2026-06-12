@@ -18,33 +18,92 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { mediaUrl } from '@shared/media'
-import type { MoodboardItem, TextItemData } from '@shared/types'
+import type { MoodboardItem, MoodboardConnector, TextItemData } from '@shared/types'
 import { useMoodboardStore } from '../../store/moodboardStore'
 import { useAssetStore } from '../../store/assetStore'
-import { useShotStore } from '../../store/shotStore'
+import { useFrameStore } from '../../store/frameStore'
 import { getAssetDragIds } from '../../lib/dnd'
 import { ImageNode } from './nodes/ImageNode'
 import { VideoNode } from './nodes/VideoNode'
 import { AudioNode } from './nodes/AudioNode'
 import { TextNode } from './nodes/TextNode'
-import { ShotNode } from './nodes/ShotNode'
+import { FrameNode } from './nodes/FrameNode'
 import { PreviewNode } from './nodes/PreviewNode'
 import { LayerNode } from './nodes/LayerNode'
 import { DeletableEdge } from './edges/DeletableEdge'
 import { SideMenu } from './SideMenu'
+import { CanvasToolbar } from './CanvasToolbar'
 
 const nodeTypes: NodeTypes = {
   image: ImageNode,
   video: VideoNode,
   audio: AudioNode,
   text: TextNode,
-  shot: ShotNode,
+  frame: FrameNode,
   preview: PreviewNode,
   layer: LayerNode,
 }
 
 const edgeTypes: EdgeTypes = {
   deletable: DeletableEdge,
+}
+
+// Visual frame-link colors by chain level: first hop (from a root frame) = light red,
+// next hop a different color, and so on, cycling through the palette.
+const LEVEL_COLORS = [
+  '#fca5a5', // red-300
+  '#fdba74', // orange-300
+  '#fcd34d', // amber-300
+  '#86efac', // green-300
+  '#93c5fd', // blue-300
+  '#d8b4fe', // purple-300
+  '#f9a8d4', // pink-300
+]
+
+const isFunctionalConnector = (c: MoodboardConnector): boolean => {
+  const s = (c.data?.sourceHandle as string | undefined) ?? 'out'
+  const t = (c.data?.targetHandle as string | undefined) ?? 'in'
+  return s === 'out' && t === 'in'
+}
+
+/**
+ * Color each visual (frame↔frame) connector by its level: a connector's color is
+ * the depth of its source node in the link graph (roots = depth 0 → level-1
+ * links are all light red; their children's links the next color, etc.).
+ */
+function visualEdgeColors(connectors: MoodboardConnector[]): Map<string, string> {
+  const visual = connectors.filter((c) => !isFunctionalConnector(c))
+  const adj = new Map<string, string[]>()
+  const targets = new Set<string>()
+  const sources = new Set<string>()
+  for (const c of visual) {
+    if (!adj.has(c.fromItemId)) adj.set(c.fromItemId, [])
+    adj.get(c.fromItemId)?.push(c.toItemId)
+    targets.add(c.toItemId)
+    sources.add(c.fromItemId)
+  }
+  const depth = new Map<string, number>()
+  const queue: string[] = []
+  const visit = (id: string, d: number): void => {
+    if (depth.has(id)) return
+    depth.set(id, d)
+    queue.push(id)
+  }
+  // Roots = sources with no incoming visual link.
+  for (const s of sources) if (!targets.has(s)) visit(s, 0)
+  // All-cycle fallback so every link still gets a color.
+  if (queue.length === 0) for (const s of sources) visit(s, 0)
+  while (queue.length) {
+    const n = queue.shift() as string
+    const d = depth.get(n) ?? 0
+    for (const t of adj.get(n) ?? []) visit(t, d + 1)
+  }
+  const colors = new Map<string, string>()
+  for (const c of visual) {
+    const d = depth.get(c.fromItemId) ?? 0
+    colors.set(c.id, LEVEL_COLORS[d % LEVEL_COLORS.length])
+  }
+  return colors
 }
 
 const FALLBACK_TEXT: TextItemData = {
@@ -57,7 +116,7 @@ const FALLBACK_TEXT: TextItemData = {
   align: 'left',
 }
 
-/** The unified node canvas ("Storyline"): shots, layers, previews, and ideation items. */
+/** The unified node canvas ("Storyline"): frames, layers, previews, and ideation items. */
 export function MoodboardPanel(): React.JSX.Element {
   return (
     <ReactFlowProvider>
@@ -70,13 +129,13 @@ function Board(): React.JSX.Element {
   const { items, connectors, error, load, updateItem, deleteItem, connect, disconnect } =
     useMoodboardStore()
   const addTextAt = useMoodboardStore((s) => s.addTextAt)
-  const addShotItem = useMoodboardStore((s) => s.addShotItem)
-  const addShotFromAssetInLayer = useMoodboardStore((s) => s.addShotFromAssetInLayer)
+  const addFrameItem = useMoodboardStore((s) => s.addFrameItem)
+  const addFrameFromAssetInLayer = useMoodboardStore((s) => s.addFrameFromAssetInLayer)
   const addPreview = useMoodboardStore((s) => s.addPreview)
   const addLayer = useMoodboardStore((s) => s.addLayer)
   const assets = useAssetStore((s) => s.assets)
   const loadAssets = useAssetStore((s) => s.load)
-  const loadShots = useShotStore((s) => s.load)
+  const loadFrames = useFrameStore((s) => s.load)
   const wrapperRef = useRef<HTMLDivElement>(null)
   const { screenToFlowPosition } = useReactFlow()
   const [nodes, setNodes] = useNodesState<Node>([])
@@ -85,8 +144,8 @@ function Board(): React.JSX.Element {
   useEffect(() => {
     void load()
     void loadAssets()
-    void loadShots()
-  }, [load, loadAssets, loadShots])
+    void loadFrames()
+  }, [load, loadAssets, loadFrames])
 
   const assetsById = useMemo(() => new Map(assets.map((a) => [a.id, a])), [assets])
 
@@ -97,11 +156,13 @@ function Board(): React.JSX.Element {
   // Edges are managed by useEdgesState (so selection/hover changes apply via
   // onEdgesChange) but kept in sync with the persisted connectors.
   useEffect(() => {
+    const levelColors = visualEdgeColors(connectors)
     setEdges(
       connectors.map((c) => {
         const sourceHandle = (c.data?.sourceHandle as string | undefined) ?? 'out'
         const targetHandle = (c.data?.targetHandle as string | undefined) ?? 'in'
-        // The functional output→preview edge animates; visual shot links are static.
+        // The functional output→preview edge animates; visual frame links are static
+        // and colored by their chain level.
         const functional = sourceHandle === 'out' && targetHandle === 'in'
         return {
           id: c.id,
@@ -111,7 +172,7 @@ function Board(): React.JSX.Element {
           targetHandle,
           type: 'deletable',
           animated: functional,
-          data: { functional },
+          data: { functional, color: levelColors.get(c.id) },
         }
       }),
     )
@@ -153,16 +214,16 @@ function Board(): React.JSX.Element {
       // Children store positions relative to their layer.
       const x = layer ? abs.x - layer.x : abs.x
       const y = layer ? abs.y - layer.y : abs.y
-      void addShotFromAssetInLayer(assetId, x, y, layer?.id ?? null)
+      void addFrameFromAssetInLayer(assetId, x, y, layer?.id ?? null)
     })
   }
 
-  /** On drag stop, persist position and (for shots/previews) re-parent into/out of a layer. */
+  /** On drag stop, persist position and (for frames/previews) re-parent into/out of a layer. */
   const onNodeDragStop = (_e: unknown, node: Node): void => {
     const item = items.find((it) => it.id === node.id)
     if (!item) return
 
-    if (item.type !== 'shot' && item.type !== 'preview') {
+    if (item.type !== 'frame' && item.type !== 'preview') {
       void updateItem(node.id, { x: node.position.x, y: node.position.y })
       return
     }
@@ -186,21 +247,9 @@ function Board(): React.JSX.Element {
   return (
     <div className="flex h-full">
       <SideMenu
-        onAddShot={(shotId) => {
+        onAddFrame={(frameId) => {
           const { x, y } = centre()
-          void addShotItem(shotId, x, y)
-        }}
-        onAddPreview={() => {
-          const { x, y } = centre()
-          void addPreview(x, y)
-        }}
-        onAddText={() => {
-          const { x, y } = centre()
-          void addTextAt(x, y)
-        }}
-        onAddLayer={() => {
-          const { x, y } = centre()
-          void addLayer(x, y)
+          void addFrameItem(frameId, x, y)
         }}
       />
 
@@ -237,6 +286,21 @@ function Board(): React.JSX.Element {
           <Background gap={22} size={2.5} color="#525a66" />
           <Controls showInteractive={false} />
         </ReactFlow>
+
+        <CanvasToolbar
+          onAddLayer={() => {
+            const { x, y } = centre()
+            void addLayer(x, y)
+          }}
+          onAddPreview={() => {
+            const { x, y } = centre()
+            void addPreview(x, y)
+          }}
+          onAddText={() => {
+            const { x, y } = centre()
+            void addTextAt(x, y)
+          }}
+        />
       </div>
     </div>
   )
@@ -269,11 +333,11 @@ function itemToNode(
       ...common,
       type: 'layer',
       dragHandle: '.drag-handle',
-      data: { name: item.data.name ?? 'Layer' },
+      data: { name: item.data.name ?? 'Layer', color: item.data.color },
     }
   }
-  if (item.type === 'shot') {
-    return { ...common, type: 'shot', data: { shotId: item.shotId } }
+  if (item.type === 'frame') {
+    return { ...common, type: 'frame', data: { frameId: item.frameId } }
   }
   if (item.type === 'preview') {
     return { ...common, type: 'preview', data: {} }

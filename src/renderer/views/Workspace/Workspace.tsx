@@ -3,7 +3,7 @@ import { Logo } from '../../components/Logo'
 import { useProjectStore } from '../../store/projectStore'
 import { useAssetStore } from '../../store/assetStore'
 import { useMoodboardStore } from '../../store/moodboardStore'
-import { useShotStore } from '../../store/shotStore'
+import { useFrameStore } from '../../store/frameStore'
 import { useUiStore, type WorkspaceMode } from '../../store/uiStore'
 import { MoodboardPanel } from '../Moodboard/MoodboardPanel'
 import { GeneratePanel } from '../Generate/GeneratePanel'
@@ -15,13 +15,13 @@ export function Workspace({ project }: { project: Project }): React.JSX.Element 
   const closeProject = useProjectStore((s) => s.closeProject)
   const resetAssets = useAssetStore((s) => s.reset)
   const resetBoard = useMoodboardStore((s) => s.reset)
-  const resetShots = useShotStore((s) => s.reset)
+  const resetFrames = useFrameStore((s) => s.reset)
 
   const onClose = (): void => {
     setMode('moodboard')
     resetAssets()
     resetBoard()
-    resetShots()
+    resetFrames()
     closeProject()
   }
 
@@ -52,7 +52,7 @@ export function Workspace({ project }: { project: Project }): React.JSX.Element 
       <main className="min-h-0 flex-1">
         {/* Generate stays mounted (just hidden) so ComfyUI doesn't reload and
             restore its previous tab each time — which raced our 'open workflow'
-            and selected the wrong shot. */}
+            and selected the wrong frame. */}
         <div className={mode === 'generate' ? 'h-full' : 'hidden'}>
           <GeneratePanel />
         </div>

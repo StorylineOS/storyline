@@ -2,16 +2,16 @@ import { useEffect, useRef, useState } from 'react'
 import type { ComfyStatus, ComfyOutput, ComfyRun, ProjectMediaDirs } from '@shared/types'
 import { useSettingsStore } from '../../store/settingsStore'
 import { useUiStore } from '../../store/uiStore'
-import { useShotStore } from '../../store/shotStore'
+import { useFrameStore } from '../../store/frameStore'
 import type { ComfyWebview } from '../../types/webview'
 
 /**
  * Code injected INTO the embedded ComfyUI page (via webview.executeJavaScript, which
- * bypasses cross-origin limits in Electron) to open a shot's saved workflow.
+ * bypasses cross-origin limits in Electron) to open a frame's saved workflow.
  *
  * Preferred: open the *saved* workflow file through ComfyUI's workflow store (exposed
  * on window.comfyAPI) so it becomes that named tab and Save overwrites the same file —
- * which keeps the shot↔workflow link intact. Falls back to loadGraphData (which opens
+ * which keeps the frame↔workflow link intact. Falls back to loadGraphData (which opens
  * an Unsaved Workflow) only if the store isn't reachable. Resolves to a status string:
  * 'opened' (saved tab) | 'loaded' (unsaved fallback) | 'failed'.
  */
@@ -65,15 +65,15 @@ function openWorkflowScript(name: string): string {
 /**
  * The Generate tab embeds ComfyUI in an iframe. It polls the backend; when it's not
  * reachable it shows guidance instead. The URL is editable (persisted to settings).
- * Per-shot "Send to ComfyUI" / "Pull result" actions live on the shot timeline.
+ * Per-frame "Send to ComfyUI" / "Pull result" actions live on the frame timeline.
  */
 export function GeneratePanel(): React.JSX.Element {
   const { comfyUrl, load, setComfyUrl } = useSettingsStore()
   const linkedWorkflow = useUiStore((s) => s.linkedWorkflow)
   const setLinkedWorkflow = useUiStore((s) => s.setLinkedWorkflow)
-  const activeShotId = useUiStore((s) => s.activeShotId)
-  const activeShot = useShotStore((s) => s.shots.find((sh) => sh.id === activeShotId))
-  const captureOutput = useShotStore((s) => s.captureOutput)
+  const activeFrameId = useUiStore((s) => s.activeFrameId)
+  const activeFrame = useFrameStore((s) => s.frames.find((sh) => sh.id === activeFrameId))
+  const captureOutput = useFrameStore((s) => s.captureOutput)
   const [status, setStatus] = useState<ComfyStatus | null>(null)
   const [draftUrl, setDraftUrl] = useState('')
   const [dirs, setDirs] = useState<ProjectMediaDirs | null>(null)
@@ -90,8 +90,8 @@ export function GeneratePanel(): React.JSX.Element {
   const url = status?.url ?? comfyUrl
 
   const onCapture = (output: ComfyOutput): void => {
-    if (!activeShotId) return
-    void captureOutput(activeShotId, output)
+    if (!activeFrameId) return
+    void captureOutput(activeFrameId, output)
     setCaptured((s) => new Set(s).add(output.url))
   }
 
@@ -171,12 +171,12 @@ export function GeneratePanel(): React.JSX.Element {
     return () => wv.removeEventListener('dom-ready', onReady)
   }, [running])
 
-  // When a shot is linked (or changes), drive the embedded ComfyUI to open it.
+  // When a frame is linked (or changes), drive the embedded ComfyUI to open it.
   // If the saved workflow tab opens cleanly, clear the hint (no sidebar step needed).
   useEffect(() => {
     if (!webviewReady || !linkedWorkflow || !webviewRef.current) return
-    // One-shot: clear after attempting so a remount can't replay a stale workflow
-    // and re-select the wrong shot's tab.
+    // One-frame: clear after attempting so a remount can't replay a stale workflow
+    // and re-select the wrong frame's tab.
     webviewRef.current
       .executeJavaScript(openWorkflowScript(linkedWorkflow))
       .catch(() => {})
@@ -281,7 +281,7 @@ export function GeneratePanel(): React.JSX.Element {
           <CaptureStrip
             run={run}
             captured={captured}
-            targetShotName={activeShot?.name ?? null}
+            targetFrameName={activeFrame?.name ?? null}
             onCapture={onCapture}
             onDismiss={() => setRun(null)}
           />
@@ -294,13 +294,13 @@ export function GeneratePanel(): React.JSX.Element {
 function CaptureStrip({
   run,
   captured,
-  targetShotName,
+  targetFrameName,
   onCapture,
   onDismiss,
 }: {
   run: ComfyRun
   captured: Set<string>
-  targetShotName: string | null
+  targetFrameName: string | null
   onCapture: (output: ComfyOutput) => void
   onDismiss: () => void
 }): React.JSX.Element {
@@ -309,12 +309,12 @@ function CaptureStrip({
       <div className="mb-1.5 flex items-center justify-between">
         <span className="text-[11px] text-zinc-300">
           New outputs ·{' '}
-          {targetShotName ? (
+          {targetFrameName ? (
             <>
-              capture to <span className="font-medium text-white">Shot {targetShotName}</span>
+              capture to <span className="font-medium text-white">Frame {targetFrameName}</span>
             </>
           ) : (
-            <span className="text-amber-400">open a shot's workflow to capture</span>
+            <span className="text-amber-400">open a frame's workflow to capture</span>
           )}
         </span>
         <button
@@ -330,7 +330,7 @@ function CaptureStrip({
             key={output.url}
             output={output}
             captured={captured.has(output.url)}
-            disabled={!targetShotName}
+            disabled={!targetFrameName}
             onCapture={() => onCapture(output)}
           />
         ))}
@@ -362,7 +362,7 @@ function CaptureTile({
         disabled={disabled || captured}
         className="absolute inset-0 flex items-center justify-center bg-black/60 text-[10px] font-medium text-white opacity-0 transition-opacity group-hover:opacity-100 disabled:cursor-not-allowed"
       >
-        {captured ? '✓ Captured' : 'Update shot output'}
+        {captured ? '✓ Captured' : 'Update frame output'}
       </button>
       {captured && (
         <span className="absolute right-1 top-1 rounded bg-accent px-1 text-[9px] text-white">

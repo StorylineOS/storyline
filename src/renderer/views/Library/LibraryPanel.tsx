@@ -207,7 +207,7 @@ function AssetThumb({
           const ids = dragSelected && dragIds.length > 0 ? dragIds : [asset.id]
           setAssetDragPayload(e.dataTransfer, ids)
         }}
-        title={`${asset.name} — drag onto the Shots Sequence (⌘/Ctrl-click to multi-select)`}
+        title={`${asset.name} — drag onto the Frames Sequence (⌘/Ctrl-click to multi-select)`}
         className={`flex w-full flex-col overflow-hidden rounded-md border text-left ${
           dragSelected
             ? 'border-accent ring-1 ring-accent'

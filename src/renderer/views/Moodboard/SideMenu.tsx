@@ -1,34 +1,27 @@
 import { useState } from 'react'
-import { useShotStore } from '../../store/shotStore'
+import { useFrameStore } from '../../store/frameStore'
 import { LibraryPanel } from '../Library/LibraryPanel'
 
-type Tab = 'assets' | 'components' | 'gallery'
+type Tab = 'assets' | 'gallery'
 
 const TABS: { key: Tab; label: string; icon: string }[] = [
   { key: 'assets', label: 'Assets', icon: '▦' },
-  { key: 'components', label: 'Components', icon: '◳' },
   { key: 'gallery', label: 'Gallery', icon: '☰' },
 ]
 
 /**
  * Collapsible left rail for the canvas. Assets reuses the full library (browse /
- * import / folders; drag a tile onto the canvas to create a shot). Components is the
- * node palette (Layer / Preview / Text). Gallery places an existing shot.
+ * import / folders; drag a tile onto the canvas to create a frame). Gallery places
+ * an existing frame. Node creation lives in the floating canvas toolbar instead.
  */
 export function SideMenu({
-  onAddShot,
-  onAddPreview,
-  onAddText,
-  onAddLayer,
+  onAddFrame,
 }: {
-  onAddShot: (shotId: string) => void
-  onAddPreview: () => void
-  onAddText: () => void
-  onAddLayer: () => void
+  onAddFrame: (frameId: string) => void
 }): React.JSX.Element {
   const [tab, setTab] = useState<Tab>('assets')
   const [open, setOpen] = useState(true)
-  const shots = useShotStore((s) => s.shots)
+  const frames = useFrameStore((s) => s.frames)
 
   if (!open) {
     return (
@@ -88,32 +81,25 @@ export function SideMenu({
 
       <div className="min-h-0 flex-1">
         {/* Assets reuses the full library panel — same browse/import/folder UX as
-            before; drag a tile onto the canvas to create a shot from it. */}
+            before; drag a tile onto the canvas to create a frame from it. */}
         {tab === 'assets' && <LibraryPanel />}
-
-        {tab === 'components' && (
-          <div className="flex flex-col gap-1.5 p-2">
-            <p className="mb-1 text-[10px] uppercase tracking-wide text-zinc-600">Add to canvas</p>
-            <PaletteButton icon="▦" label="Layer group" onClick={onAddLayer} />
-            <PaletteButton icon="▣" label="Preview node" onClick={onAddPreview} />
-            <PaletteButton icon="T" label="Text" onClick={onAddText} />
-          </div>
-        )}
 
         {tab === 'gallery' && (
           <div className="overflow-y-auto p-2">
-            {shots.length === 0 ? (
-              <p className="text-xs text-zinc-600">No shots yet — drag an asset onto the canvas.</p>
+            {frames.length === 0 ? (
+              <p className="text-xs text-zinc-600">
+                No frames yet — drag an asset onto the canvas.
+              </p>
             ) : (
               <div className="flex flex-col gap-1">
-                {shots.map((sh) => (
+                {frames.map((sh) => (
                   <button
                     key={sh.id}
-                    onClick={() => onAddShot(sh.id)}
-                    title="Place this shot on the canvas"
+                    onClick={() => onAddFrame(sh.id)}
+                    title="Place this frame on the canvas"
                     className="rounded border border-border px-2 py-1 text-left text-xs text-zinc-300 hover:border-accent"
                   >
-                    Shot {sh.name}
+                    Frame {sh.name}
                     {sh.comfyWorkflowName ? ' 🔗' : ''}
                   </button>
                 ))}
@@ -123,27 +109,5 @@ export function SideMenu({
         )}
       </div>
     </div>
-  )
-}
-
-function PaletteButton({
-  icon,
-  label,
-  onClick,
-}: {
-  icon: string
-  label: string
-  onClick: () => void
-}): React.JSX.Element {
-  return (
-    <button
-      onClick={onClick}
-      className="flex items-center gap-2 rounded-md border border-border px-2 py-1.5 text-xs text-zinc-200 hover:border-accent hover:bg-surface"
-    >
-      <span className="flex h-5 w-5 items-center justify-center rounded bg-surface text-[11px] text-zinc-400">
-        {icon}
-      </span>
-      {label}
-    </button>
   )
 }

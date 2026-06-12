@@ -5,7 +5,7 @@
  */
 import type BetterSqlite3 from 'better-sqlite3'
 
-export const SCHEMA_VERSION = 7
+export const SCHEMA_VERSION = 8
 
 const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS project (
@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS sequences (
   position    INTEGER NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS shots (
+CREATE TABLE IF NOT EXISTS frames (
   id                   TEXT PRIMARY KEY,
   sequence_id          TEXT NOT NULL,
   name                 TEXT NOT NULL,
@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS shots (
 
 CREATE TABLE IF NOT EXISTS takes (
   id              TEXT PRIMARY KEY,
-  shot_id         TEXT NOT NULL,
+  frame_id         TEXT NOT NULL,
   file_path       TEXT NOT NULL,
   kind            TEXT NOT NULL,
   params          TEXT NOT NULL,
@@ -46,11 +46,11 @@ CREATE TABLE IF NOT EXISTS takes (
   created_at      INTEGER NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS shot_inputs (
+CREATE TABLE IF NOT EXISTS frame_inputs (
   id             TEXT PRIMARY KEY,
-  shot_id        TEXT NOT NULL,
+  frame_id        TEXT NOT NULL,
   asset_id       TEXT,
-  source_shot_id TEXT,
+  source_frame_id TEXT,
   position       INTEGER NOT NULL
 );
 
@@ -78,7 +78,7 @@ CREATE TABLE IF NOT EXISTS moodboard_items (
   project_id  TEXT NOT NULL,
   type        TEXT NOT NULL DEFAULT 'asset',
   asset_id    TEXT,
-  shot_id     TEXT,
+  frame_id     TEXT,
   parent_id   TEXT,
   data        TEXT,
   x           REAL NOT NULL,
@@ -104,7 +104,7 @@ CREATE TABLE IF NOT EXISTS moodboard_connectors (
 CREATE TABLE IF NOT EXISTS timeline_clips (
   id          TEXT PRIMARY KEY,
   sequence_id TEXT NOT NULL,
-  shot_id     TEXT NOT NULL,
+  frame_id     TEXT NOT NULL,
   track       INTEGER NOT NULL,
   start_time  REAL NOT NULL,
   in_point    REAL NOT NULL,
@@ -119,9 +119,9 @@ CREATE TABLE IF NOT EXISTS workflow_templates (
   params      TEXT NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_shots_sequence ON shots(sequence_id);
-CREATE INDEX IF NOT EXISTS idx_takes_shot ON takes(shot_id);
-CREATE INDEX IF NOT EXISTS idx_shot_inputs_shot ON shot_inputs(shot_id);
+CREATE INDEX IF NOT EXISTS idx_frames_sequence ON frames(sequence_id);
+CREATE INDEX IF NOT EXISTS idx_takes_frame ON takes(frame_id);
+CREATE INDEX IF NOT EXISTS idx_frame_inputs_frame ON frame_inputs(frame_id);
 CREATE INDEX IF NOT EXISTS idx_assets_project ON assets(project_id);
 CREATE INDEX IF NOT EXISTS idx_assets_folder ON assets(folder_id);
 CREATE INDEX IF NOT EXISTS idx_asset_folders_parent ON asset_folders(parent_id);
@@ -145,15 +145,15 @@ export function applySchema(db: BetterSqlite3.Database): void {
 
 /** Data migrations that need the current schema (tables) to already exist. */
 function runDataMigrations(db: BetterSqlite3.Database, fromVersion: number): void {
-  // v5 → v6: move each shot's single input_asset_id into the new shot_inputs table.
-  // Idempotent: skip shots that already have inputs.
+  // v5 → v6: move each frame's single input_asset_id into the new frame_inputs table.
+  // Idempotent: skip frames that already have inputs.
   if (fromVersion < 6) {
     db.exec(`
-      INSERT INTO shot_inputs (id, shot_id, asset_id, position)
+      INSERT INTO frame_inputs (id, frame_id, asset_id, position)
       SELECT lower(hex(randomblob(16))), id, input_asset_id, 0
-      FROM shots
+      FROM frames
       WHERE input_asset_id IS NOT NULL
-        AND NOT EXISTS (SELECT 1 FROM shot_inputs si WHERE si.shot_id = shots.id);
+        AND NOT EXISTS (SELECT 1 FROM frame_inputs si WHERE si.frame_id = frames.id);
     `)
   }
 }
@@ -164,6 +164,11 @@ function runDataMigrations(db: BetterSqlite3.Database, fromVersion: number): voi
  * indexes can reference newly-added columns.
  */
 function migrateColumns(db: BetterSqlite3.Database): void {
+  // v7 → v8: rename "shot" → "frame" across tables/columns. Must run before SCHEMA_SQL
+  // (so its CREATE TABLE IF NOT EXISTS frames doesn't make an empty duplicate) and
+  // before the addColumnIfMissing calls below (which now reference the frame_* names).
+  migrateRenames(db)
+
   // v1 → v2: assets.folder_id
   addColumnIfMissing(db, 'assets', 'folder_id', 'TEXT')
 
@@ -176,20 +181,66 @@ function migrateColumns(db: BetterSqlite3.Database): void {
   addColumnIfMissing(db, 'moodboard_items', 'created_at', 'INTEGER NOT NULL DEFAULT 0')
   addColumnIfMissing(db, 'moodboard_items', 'updated_at', 'INTEGER NOT NULL DEFAULT 0')
 
-  // v3 → v4: shots gain a source asset reference.
-  addColumnIfMissing(db, 'shots', 'input_asset_id', 'TEXT')
+  // v3 → v4: frames gain a source asset reference.
+  addColumnIfMissing(db, 'frames', 'input_asset_id', 'TEXT')
 
-  // v4 → v5: shots gain a linked ComfyUI workflow name.
-  addColumnIfMissing(db, 'shots', 'comfy_workflow_name', 'TEXT')
+  // v4 → v5: frames gain a linked ComfyUI workflow name.
+  addColumnIfMissing(db, 'frames', 'comfy_workflow_name', 'TEXT')
 
-  // v5 → v6: shots gain a source asset reference (shot_inputs created by SCHEMA_SQL).
-  // (shot_inputs.comfy_workflow handled above; nothing else here.)
+  // v5 → v6: frames gain a source asset reference (frame_inputs created by SCHEMA_SQL).
+  // (frame_inputs.comfy_workflow handled above; nothing else here.)
 
-  // v6 → v7: moodboard items can be shots/layers/previews on the unified canvas.
-  addColumnIfMissing(db, 'moodboard_items', 'shot_id', 'TEXT')
+  // v6 → v7: moodboard items can be frames/layers/previews on the unified canvas.
+  addColumnIfMissing(db, 'moodboard_items', 'frame_id', 'TEXT')
   addColumnIfMissing(db, 'moodboard_items', 'parent_id', 'TEXT')
-  // shot_inputs can reference another shot's output (the refine/flow connector).
-  addColumnIfMissing(db, 'shot_inputs', 'source_shot_id', 'TEXT')
+  // frame_inputs can reference another frame's output (the refine/flow connector).
+  addColumnIfMissing(db, 'frame_inputs', 'source_frame_id', 'TEXT')
+}
+
+function tableExists(db: BetterSqlite3.Database, table: string): boolean {
+  return !!db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?").get(table)
+}
+
+function renameColumnIfExists(
+  db: BetterSqlite3.Database,
+  table: string,
+  oldCol: string,
+  newCol: string,
+): void {
+  if (!tableExists(db, table)) return
+  const cols = db.pragma(`table_info(${table})`) as Array<{ name: string }>
+  const hasOld = cols.some((c) => c.name === oldCol)
+  const hasNew = cols.some((c) => c.name === newCol)
+  if (hasOld && !hasNew) db.exec(`ALTER TABLE ${table} RENAME COLUMN ${oldCol} TO ${newCol}`)
+}
+
+/**
+ * v7 → v8: the "shot" domain was renamed to "frame". Rename the existing tables,
+ * their shot_id columns, and the moodboard 'shot' item-type value in place so
+ * existing projects keep their data. All guarded, so it's a no-op on fresh DBs and
+ * idempotent on already-migrated ones.
+ */
+function migrateRenames(db: BetterSqlite3.Database): void {
+  if (tableExists(db, 'shots') && !tableExists(db, 'frames')) {
+    db.exec('ALTER TABLE shots RENAME TO frames')
+  }
+  if (tableExists(db, 'shot_inputs') && !tableExists(db, 'frame_inputs')) {
+    db.exec('ALTER TABLE shot_inputs RENAME TO frame_inputs')
+  }
+  renameColumnIfExists(db, 'frame_inputs', 'shot_id', 'frame_id')
+  renameColumnIfExists(db, 'frame_inputs', 'source_shot_id', 'source_frame_id')
+  renameColumnIfExists(db, 'takes', 'shot_id', 'frame_id')
+  renameColumnIfExists(db, 'moodboard_items', 'shot_id', 'frame_id')
+  renameColumnIfExists(db, 'timeline_clips', 'shot_id', 'frame_id')
+  if (tableExists(db, 'moodboard_items')) {
+    db.exec("UPDATE moodboard_items SET type='frame' WHERE type='shot'")
+  }
+  // Drop the now-misnamed indexes; SCHEMA_SQL recreates them with frame_* names.
+  db.exec(
+    'DROP INDEX IF EXISTS idx_shots_sequence;' +
+      'DROP INDEX IF EXISTS idx_takes_shot;' +
+      'DROP INDEX IF EXISTS idx_shot_inputs_shot;',
+  )
 }
 
 function addColumnIfMissing(

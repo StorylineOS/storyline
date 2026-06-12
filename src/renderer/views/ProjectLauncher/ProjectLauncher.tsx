@@ -17,7 +17,7 @@ export function ProjectLauncher(): React.JSX.Element {
             <h1 className="text-4xl font-semibold tracking-tight text-white">Storyline</h1>
           </div>
           <p className="mt-3 text-sm text-zinc-400">
-            Build films shot by shot. ComfyUI as your render farm.
+            Build films frame by frame. ComfyUI as your render farm.
           </p>
         </header>
 

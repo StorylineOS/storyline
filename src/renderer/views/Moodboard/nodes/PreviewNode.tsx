@@ -1,24 +1,26 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { mediaUrl } from '@shared/media'
 import { useMoodboardStore } from '../../../store/moodboardStore'
-import { useShotStore } from '../../../store/shotStore'
+import { useFrameStore } from '../../../store/frameStore'
 import { NodeFrame } from './NodeFrame'
 
 /**
- * A Comfy-style preview node: connect a shot's output handle to its input and it
- * displays that shot's hero output. Source is resolved via the moodboard connector
- * feeding this node (shot item → preview).
+ * A Comfy-style preview node: connect a frame's output handle to its input and it
+ * displays that frame's hero output. Source is resolved via the moodboard connector
+ * feeding this node (frame item → preview).
  */
 export function PreviewNode({ id, selected }: NodeProps): React.JSX.Element {
   const connectors = useMoodboardStore((s) => s.connectors)
   const items = useMoodboardStore((s) => s.items)
-  const shots = useShotStore((s) => s.shots)
-  const takesByShot = useShotStore((s) => s.takesByShot)
+  const frames = useFrameStore((s) => s.frames)
+  const takesByFrame = useFrameStore((s) => s.takesByFrame)
 
   const conn = connectors.find((c) => c.toItemId === id)
   const sourceItem = conn ? items.find((it) => it.id === conn.fromItemId) : undefined
-  const shot = sourceItem?.shotId ? shots.find((s) => s.id === sourceItem.shotId) : undefined
-  const hero = shot ? (takesByShot[shot.id] ?? []).find((t) => t.id === shot.heroTakeId) : undefined
+  const frame = sourceItem?.frameId ? frames.find((s) => s.id === sourceItem.frameId) : undefined
+  const hero = frame
+    ? (takesByFrame[frame.id] ?? []).find((t) => t.id === frame.heroTakeId)
+    : undefined
 
   return (
     <>
@@ -33,7 +35,7 @@ export function PreviewNode({ id, selected }: NodeProps): React.JSX.Element {
           <div className="flex items-center gap-1 border-b border-border bg-panel px-2 py-1">
             <span className="text-[10px] text-indigo-400">▣</span>
             <span className="flex-1 truncate text-[11px] font-medium text-zinc-300">
-              Preview{shot ? ` · Shot ${shot.name}` : ''}
+              Preview{frame ? ` · Frame ${frame.name}` : ''}
             </span>
           </div>
           <div className="flex flex-1 items-center justify-center bg-black">
@@ -49,7 +51,7 @@ export function PreviewNode({ id, selected }: NodeProps): React.JSX.Element {
               )
             ) : (
               <span className="p-3 text-center text-[11px] text-zinc-500">
-                Connect a shot&apos;s output here to preview it
+                Connect a frame&apos;s output here to preview it
               </span>
             )}
           </div>

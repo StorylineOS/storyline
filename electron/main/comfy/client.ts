@@ -1,16 +1,16 @@
 /**
  * The ComfyUI bridge. All ComfyUI knowledge lives here (CLAUDE.md engine-isolation
  * rule). Slice B is an embed + bridge: we don't drive workflows via the API yet —
- * we upload a shot's input so it's available in Comfy, and pull the latest output
+ * we upload a frame's input so it's available in Comfy, and pull the latest output
  * back as a take. Uses Comfy's HTTP API: /system_stats, /upload/image, /history, /view.
  */
 import { join, extname } from 'node:path'
 import { writeFileSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
-import type { Take, ComfyStatus, AssetKind, Shot, ComfyOutput, ComfyRun } from '@shared/types'
+import type { Take, ComfyStatus, AssetKind, Frame, ComfyOutput, ComfyRun } from '@shared/types'
 import { getSettings } from '../settings/store'
 import { getOpenProjectFolder } from '../db'
-import { addTake, getShotById, linkWorkflow, shotInputFileNames } from '../shots/store'
+import { addTake, getFrameById, linkWorkflow, frameInputFileNames } from '../frames/store'
 import { getCurrentProject } from '../project/store'
 
 function baseUrl(): string {
@@ -46,13 +46,13 @@ function sanitizeSegment(name: string): string {
   )
 }
 
-/** A minimal, guaranteed-to-load LiteGraph workflow with a Note titled after the shot. */
-function buildSeedWorkflow(shotName: string, inputFileNames: string[]): unknown {
+/** A minimal, guaranteed-to-load LiteGraph workflow with a Note titled after the frame. */
+function buildSeedWorkflow(frameName: string, inputFileNames: string[]): unknown {
   const inputsLine = inputFileNames.length > 0 ? `\nInputs:\n  ${inputFileNames.join('\n  ')}` : ''
   const noteText =
-    `Storyline shot: ${shotName}` +
+    `Storyline frame: ${frameName}` +
     inputsLine +
-    `\n\nBuild this shot's workflow here, then Save (the link persists).`
+    `\n\nBuild this frame's workflow here, then Save (the link persists).`
   return {
     last_node_id: 1,
     last_link_id: 0,
@@ -67,7 +67,7 @@ function buildSeedWorkflow(shotName: string, inputFileNames: string[]): unknown 
         mode: 0,
         inputs: [],
         outputs: [],
-        title: shotName,
+        title: frameName,
         properties: {},
         widgets_values: [noteText],
         color: '#432',
@@ -83,20 +83,20 @@ function buildSeedWorkflow(shotName: string, inputFileNames: string[]): unknown 
 }
 
 /**
- * Link a shot to a ComfyUI workflow: create a workflow named after the shot (seeded
- * with a Note) via Comfy's userdata API, and remember the name on the shot. If the
- * shot is already linked, just return it (don't clobber the user's edits).
+ * Link a frame to a ComfyUI workflow: create a workflow named after the frame (seeded
+ * with a Note) via Comfy's userdata API, and remember the name on the frame. If the
+ * frame is already linked, just return it (don't clobber the user's edits).
  */
-export async function linkShotWorkflow(shotId: string): Promise<Shot> {
-  const shot = getShotById(shotId)
-  if (shot.comfyWorkflowName) return shot
+export async function linkFrameWorkflow(frameId: string): Promise<Frame> {
+  const frame = getFrameById(frameId)
+  if (frame.comfyWorkflowName) return frame
 
   const project = getCurrentProject()
   const projectSeg = sanitizeSegment(project?.name ?? 'Project')
-  const shotSeg = sanitizeSegment(shot.name)
-  const name = `Storyline/${projectSeg}/${shotSeg} (${shot.id.slice(0, 6)})`
+  const frameSeg = sanitizeSegment(frame.name)
+  const name = `Storyline/${projectSeg}/${frameSeg} (${frame.id.slice(0, 6)})`
 
-  const workflow = buildSeedWorkflow(shot.name, shotInputFileNames(shotId))
+  const workflow = buildSeedWorkflow(frame.name, frameInputFileNames(frameId))
 
   const file = encodeURIComponent(`workflows/${name}.json`)
   const res = await fetch(`${baseUrl()}/userdata/${file}?overwrite=false`, {
@@ -110,7 +110,7 @@ export async function linkShotWorkflow(shotId: string): Promise<Shot> {
       `Could not save the workflow to ComfyUI (${res.status}). Make sure it's running and recent enough to support the userdata API.`,
     )
   }
-  return linkWorkflow(shotId, name)
+  return linkWorkflow(frameId, name)
 }
 
 interface OutputFile {
@@ -148,7 +148,7 @@ function viewUrl(file: OutputFile): string {
 
 /** Download a ComfyUI output file into the project's takes/ and attach it as a take. */
 async function saveOutputAsTake(
-  shotId: string,
+  frameId: string,
   file: OutputFile,
   promptId: string | null,
 ): Promise<Take> {
@@ -160,7 +160,7 @@ async function saveOutputAsTake(
   const relPath = `takes/${randomUUID()}${ext}`
   writeFileSync(join(folder, relPath), Buffer.from(await bin.arrayBuffer()))
   return addTake({
-    shotId,
+    frameId,
     filePath: relPath,
     kind: kindForExt(ext),
     comfyPromptId: promptId,
@@ -169,10 +169,10 @@ async function saveOutputAsTake(
 }
 
 /**
- * Pull the most recent ComfyUI output and attach it to the shot as a take.
+ * Pull the most recent ComfyUI output and attach it to the frame as a take.
  * Heuristic: the last entry in /history is the latest run.
  */
-export async function pullLatestToShot(shotId: string): Promise<Take> {
+export async function pullLatestToFrame(frameId: string): Promise<Take> {
   const res = await fetch(`${baseUrl()}/history`)
   if (!res.ok) throw new Error(`Could not read ComfyUI history (${res.status}). Is it running?`)
   const history = (await res.json()) as Record<string, HistoryEntry>
@@ -183,7 +183,7 @@ export async function pullLatestToShot(shotId: string): Promise<Take> {
   const promptId = ids[ids.length - 1]
   const file = collectOutputs(history[promptId].outputs)[0]
   if (!file) throw new Error('The latest ComfyUI run produced no downloadable output.')
-  return saveOutputAsTake(shotId, file, promptId)
+  return saveOutputAsTake(frameId, file, promptId)
 }
 
 /** The most recent ComfyUI run and all its output files (for the capture strip). */
@@ -204,10 +204,10 @@ export async function latestRun(): Promise<ComfyRun | null> {
   return { promptId, outputs }
 }
 
-/** Download a specific ComfyUI output (from the capture strip) into the shot. */
-export async function captureOutput(shotId: string, output: ComfyOutput): Promise<Take> {
+/** Download a specific ComfyUI output (from the capture strip) into the frame. */
+export async function captureOutput(frameId: string, output: ComfyOutput): Promise<Take> {
   return saveOutputAsTake(
-    shotId,
+    frameId,
     { filename: output.filename, subfolder: output.subfolder, type: output.type },
     null,
   )

@@ -4,7 +4,7 @@ import { useMoodboardStore } from '../../../store/moodboardStore'
 /**
  * A connector that highlights when clicked and shows a ✕ button at its midpoint to
  * remove the link between two nodes. `data.functional` distinguishes the animated
- * output→preview wire (indigo) from purely-visual shot links (gray).
+ * output→preview wire (indigo) from purely-visual frame links (gray).
  */
 export function DeletableEdge(props: EdgeProps): React.JSX.Element {
   const {
@@ -28,8 +28,9 @@ export function DeletableEdge(props: EdgeProps): React.JSX.Element {
     sourcePosition,
     targetPosition,
   })
-  const functional = (data as { functional?: boolean } | undefined)?.functional ?? false
-  const stroke = selected ? '#fb7185' : functional ? '#6366f1' : '#52525b'
+  const edgeData = data as { functional?: boolean; color?: string } | undefined
+  const functional = edgeData?.functional ?? false
+  const stroke = selected ? '#fb7185' : functional ? '#6366f1' : (edgeData?.color ?? '#52525b')
 
   return (
     <>
@@ -48,7 +49,7 @@ export function DeletableEdge(props: EdgeProps): React.JSX.Element {
               transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
               pointerEvents: 'all',
               // Sit above the nodes so the midpoint button is always clickable,
-              // even when the connector's midpoint falls over a shot.
+              // even when the connector's midpoint falls over a frame.
               zIndex: 1000,
             }}
             className="nodrag nopan flex h-3.5 w-3.5 items-center justify-center rounded-full bg-rose-500 text-[8px] leading-none text-white shadow-md hover:bg-rose-400"

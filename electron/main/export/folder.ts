@@ -1,7 +1,7 @@
 /**
- * Export each shot's chosen Output (hero take), in shot order, into a folder the
+ * Export each frame's chosen Output (hero take), in frame order, into a folder the
  * user picks — numbered for finishing in an external NLE (Resolve/Premiere/CapCut).
- * Plain file copy; no ffmpeg. Shots without an Output yet are reported and skipped.
+ * Plain file copy; no ffmpeg. Frames without an Output yet are reported and skipped.
  */
 import { dialog } from 'electron'
 import { join, extname } from 'node:path'
@@ -14,12 +14,12 @@ interface ExportRow {
   file_path: string | null
 }
 
-export async function exportShots(): Promise<ExportResult | null> {
+export async function exportFrames(): Promise<ExportResult | null> {
   const projectFolder = getOpenProjectFolder()
   if (!projectFolder) throw new Error('No project is open.')
 
   const picked = await dialog.showOpenDialog({
-    title: 'Export shots to folder',
+    title: 'Export frames to folder',
     buttonLabel: 'Export',
     properties: ['openDirectory', 'createDirectory'],
   })
@@ -29,7 +29,7 @@ export async function exportShots(): Promise<ExportResult | null> {
   const rows = getDb()
     .prepare(
       `SELECT s.name AS name, t.file_path AS file_path
-       FROM shots s
+       FROM frames s
        LEFT JOIN takes t ON s.hero_take_id = t.id
        ORDER BY s.position`,
     )

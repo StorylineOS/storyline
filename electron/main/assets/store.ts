@@ -127,17 +127,17 @@ export function listAssets(): Asset[] {
 
 /**
  * Delete a library asset: removes it from any moodboard items, deletes the row and
- * the file. Blocked if it's used as a shot input (a shot must keep ≥1 input) —
- * remove it from those shots first.
+ * the file. Blocked if it's used as a frame input (a frame must keep ≥1 input) —
+ * remove it from those frames first.
  */
 export function deleteAsset(assetId: string): void {
   const db = getDb()
   const used = db
-    .prepare('SELECT COUNT(*) AS n FROM shot_inputs WHERE asset_id = ?')
+    .prepare('SELECT COUNT(*) AS n FROM frame_inputs WHERE asset_id = ?')
     .get(assetId) as { n: number }
   if (used.n > 0) {
     throw new Error(
-      `This asset is used by ${used.n} shot${used.n === 1 ? '' : 's'} — remove it from those shots first.`,
+      `This asset is used by ${used.n} frame${used.n === 1 ? '' : 's'} — remove it from those frames first.`,
     )
   }
   const row = db.prepare('SELECT file_path FROM assets WHERE id = ?').get(assetId) as

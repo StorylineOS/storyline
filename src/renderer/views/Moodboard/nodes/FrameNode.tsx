@@ -1,16 +1,16 @@
 import { useState } from 'react'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { mediaUrl } from '@shared/media'
-import { useShotStore } from '../../../store/shotStore'
+import { useFrameStore } from '../../../store/frameStore'
 import { useAssetStore } from '../../../store/assetStore'
 import { useUiStore } from '../../../store/uiStore'
 import { NodeFrame } from './NodeFrame'
 
-interface ShotNodeData extends Record<string, unknown> {
-  shotId: string
+interface FrameNodeData extends Record<string, unknown> {
+  frameId: string
 }
 
-/** Small, both-source-and-target (loose mode) handle for purely-visual shot links. */
+/** Small, both-source-and-target (loose mode) handle for purely-visual frame links. */
 function VisualHandle({ id, position }: { id: string; position: Position }): React.JSX.Element {
   return (
     <Handle
@@ -23,22 +23,22 @@ function VisualHandle({ id, position }: { id: string; position: Position }): Rea
 }
 
 /**
- * A shot on the canvas, styled like a preview: the body shows the shot's hero
+ * A frame on the canvas, styled like a preview: the body shows the frame's hero
  * input (carousel + "set as hero" when it has several). The header carries the
  * functional Output handle (wire it to a Preview/output node to see the result).
- * Three side handles allow purely-visual shot↔shot links (Miro-style).
+ * Three side handles allow purely-visual frame↔frame links (Miro-style).
  */
-export function ShotNode({ id, data, selected }: NodeProps): React.JSX.Element {
-  const { shotId } = data as ShotNodeData
-  const shot = useShotStore((s) => s.shots.find((sh) => sh.id === shotId))
-  const inputs = useShotStore((s) => s.inputsByShot[shotId]) ?? []
-  const busy = useShotStore((s) => s.busyId === shotId)
-  const linkShot = useShotStore((s) => s.linkShot)
-  const reorderInputs = useShotStore((s) => s.reorderInputs)
+export function FrameNode({ id, data, selected }: NodeProps): React.JSX.Element {
+  const { frameId } = data as FrameNodeData
+  const frame = useFrameStore((s) => s.frames.find((sh) => sh.id === frameId))
+  const inputs = useFrameStore((s) => s.inputsByFrame[frameId]) ?? []
+  const busy = useFrameStore((s) => s.busyId === frameId)
+  const linkFrame = useFrameStore((s) => s.linkFrame)
+  const reorderInputs = useFrameStore((s) => s.reorderInputs)
   const assets = useAssetStore((s) => s.assets)
   const setMode = useUiStore((s) => s.setMode)
   const setLinkedWorkflow = useUiStore((s) => s.setLinkedWorkflow)
-  const setActiveShot = useUiStore((s) => s.setActiveShot)
+  const setActiveFrame = useUiStore((s) => s.setActiveFrame)
   const [idx, setIdx] = useState(0)
 
   const thumbs = inputs
@@ -47,20 +47,20 @@ export function ShotNode({ id, data, selected }: NodeProps): React.JSX.Element {
   const count = thumbs.length
   const safeIdx = count ? Math.min(idx, count - 1) : 0
   const cur = count ? thumbs[safeIdx] : undefined
-  const linked = !!shot?.comfyWorkflowName
+  const linked = !!frame?.comfyWorkflowName
 
   const onLink = async (): Promise<void> => {
-    if (!shot) return
-    const result = await linkShot(shot.id)
-    setLinkedWorkflow(result?.comfyWorkflowName ?? shot.comfyWorkflowName)
-    setActiveShot(shot.id)
+    if (!frame) return
+    const result = await linkFrame(frame.id)
+    setLinkedWorkflow(result?.comfyWorkflowName ?? frame.comfyWorkflowName)
+    setActiveFrame(frame.id)
     setMode('generate')
   }
 
   const makeHero = (): void => {
     if (!cur || safeIdx === 0) return
     const ordered = [cur.id, ...thumbs.filter((_, i) => i !== safeIdx).map((a) => a.id)]
-    void reorderInputs(shotId, ordered)
+    void reorderInputs(frameId, ordered)
     setIdx(0)
   }
 
@@ -70,7 +70,7 @@ export function ShotNode({ id, data, selected }: NodeProps): React.JSX.Element {
         <div className="flex h-full w-full flex-col">
           <div className="flex items-center gap-1.5 border-b border-border bg-panel px-2 py-1">
             <span className="min-w-0 flex-1 truncate text-xs font-semibold text-zinc-100">
-              Shot {shot?.name ?? '—'}
+              Frame {frame?.name ?? '—'}
             </span>
             <span className="flex shrink-0 items-center gap-1 text-[10px] font-medium text-indigo-300">
               Output
@@ -110,7 +110,7 @@ export function ShotNode({ id, data, selected }: NodeProps): React.JSX.Element {
               )
             ) : (
               <span className="p-3 text-center text-[11px] text-zinc-600">
-                Drop an asset to set this shot&apos;s input
+                Drop an asset to set this frame&apos;s input
               </span>
             )}
 

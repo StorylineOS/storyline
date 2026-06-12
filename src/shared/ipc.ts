@@ -15,9 +15,9 @@ import type {
   MoodboardConnector,
   MoodboardSnapshot,
   MoodboardItemData,
-  Shot,
+  Frame,
   Take,
-  ShotInput,
+  FrameInput,
   AppSettings,
   ComfyStatus,
   ComfyOutput,
@@ -50,26 +50,26 @@ export const IpcChannels = {
     rename: 'folders:rename',
     delete: 'folders:delete',
   },
-  shots: {
-    list: 'shots:list',
-    importAsShots: 'shots:importAsShots',
-    addFromAsset: 'shots:addFromAsset',
-    rename: 'shots:rename',
-    reorder: 'shots:reorder',
-    delete: 'shots:delete',
-    setHero: 'shots:setHero',
-    listTakes: 'shots:listTakes',
-    heroTakes: 'shots:heroTakes',
-    listInputs: 'shots:listInputs',
-    addInput: 'shots:addInput',
-    removeInput: 'shots:removeInput',
-    reorderInputs: 'shots:reorderInputs',
-    listAllTakes: 'shots:listAllTakes',
-    deleteTake: 'shots:deleteTake',
+  frames: {
+    list: 'frames:list',
+    importAsFrames: 'frames:importAsFrames',
+    addFromAsset: 'frames:addFromAsset',
+    rename: 'frames:rename',
+    reorder: 'frames:reorder',
+    delete: 'frames:delete',
+    setHero: 'frames:setHero',
+    listTakes: 'frames:listTakes',
+    heroTakes: 'frames:heroTakes',
+    listInputs: 'frames:listInputs',
+    addInput: 'frames:addInput',
+    removeInput: 'frames:removeInput',
+    reorderInputs: 'frames:reorderInputs',
+    listAllTakes: 'frames:listAllTakes',
+    deleteTake: 'frames:deleteTake',
   },
   comfy: {
     status: 'comfy:status',
-    linkShot: 'comfy:linkShot',
+    linkFrame: 'comfy:linkFrame',
     pullLatest: 'comfy:pullLatest',
     latestRun: 'comfy:latestRun',
     captureOutput: 'comfy:captureOutput',
@@ -79,14 +79,14 @@ export const IpcChannels = {
     setComfyUrl: 'settings:setComfyUrl',
   },
   export: {
-    exportShots: 'export:exportShots',
+    exportFrames: 'export:exportFrames',
   },
   moodboard: {
     list: 'moodboard:list',
     addAsset: 'moodboard:addAsset',
     addText: 'moodboard:addText',
-    addShotFromAsset: 'moodboard:addShotFromAsset',
-    addShotItem: 'moodboard:addShotItem',
+    addFrameFromAsset: 'moodboard:addFrameFromAsset',
+    addFrameItem: 'moodboard:addFrameItem',
     addPreview: 'moodboard:addPreview',
     addLayer: 'moodboard:addLayer',
     updateItem: 'moodboard:updateItem',
@@ -150,7 +150,7 @@ export interface StorylineApi {
     importDialog(folderId: string | null): Promise<Result<Asset[]>>
     /** All assets in the open project, newest first. */
     list(): Promise<Result<Asset[]>>
-    /** Delete an asset (file + row); blocked if used by a shot. */
+    /** Delete an asset (file + row); blocked if used by a frame. */
     delete(assetId: string): Promise<Result<void>>
   }
   folders: {
@@ -161,32 +161,32 @@ export interface StorylineApi {
     /** Delete a folder; its assets and subfolders move up to the parent. */
     delete(id: string): Promise<Result<void>>
   }
-  shots: {
-    /** All shots in the open project, in order. */
-    list(): Promise<Result<Shot[]>>
-    /** Import media via dialog and create a shot per file. */
-    importAsShots(): Promise<Result<Shot[]>>
-    /** Create a shot from an existing library asset. */
-    addFromAsset(assetId: string): Promise<Result<Shot>>
-    rename(id: string, name: string): Promise<Result<Shot>>
+  frames: {
+    /** All frames in the open project, in order. */
+    list(): Promise<Result<Frame[]>>
+    /** Import media via dialog and create a frame per file. */
+    importAsFrames(): Promise<Result<Frame[]>>
+    /** Create a frame from an existing library asset. */
+    addFromAsset(assetId: string): Promise<Result<Frame>>
+    rename(id: string, name: string): Promise<Result<Frame>>
     /** Persist a new left-to-right ordering. */
     reorder(orderedIds: string[]): Promise<Result<void>>
     delete(id: string): Promise<Result<void>>
-    /** Choose which take is the shot's Output (null clears it). */
-    setHero(id: string, takeId: string | null): Promise<Result<Shot>>
-    /** The shot's generated takes, newest first. */
-    listTakes(shotId: string): Promise<Result<Take[]>>
-    /** The hero (Output) take of every shot that has one. */
+    /** Choose which take is the frame's Output (null clears it). */
+    setHero(id: string, takeId: string | null): Promise<Result<Frame>>
+    /** The frame's generated takes, newest first. */
+    listTakes(frameId: string): Promise<Result<Take[]>>
+    /** The hero (Output) take of every frame that has one. */
     heroTakes(): Promise<Result<Take[]>>
-    /** All shot inputs across the project (group by shotId in the renderer). */
-    listInputs(): Promise<Result<ShotInput[]>>
-    /** Append a library asset as an input of the shot. */
-    addInput(shotId: string, assetId: string): Promise<Result<ShotInput>>
-    /** Remove an input; refused if it's the shot's last input. */
-    removeInput(shotId: string, assetId: string): Promise<Result<void>>
-    /** Persist a new input ordering for the shot. */
-    reorderInputs(shotId: string, orderedAssetIds: string[]): Promise<Result<void>>
-    /** All takes across the project (group by shotId in the renderer). */
+    /** All frame inputs across the project (group by frameId in the renderer). */
+    listInputs(): Promise<Result<FrameInput[]>>
+    /** Append a library asset as an input of the frame. */
+    addInput(frameId: string, assetId: string): Promise<Result<FrameInput>>
+    /** Remove an input; refused if it's the frame's last input. */
+    removeInput(frameId: string, assetId: string): Promise<Result<void>>
+    /** Persist a new input ordering for the frame. */
+    reorderInputs(frameId: string, orderedAssetIds: string[]): Promise<Result<void>>
+    /** All takes across the project (group by frameId in the renderer). */
     listAllTakes(): Promise<Result<Take[]>>
     /** Delete a generated take (clears it as hero if it was). */
     deleteTake(takeId: string): Promise<Result<void>>
@@ -194,22 +194,22 @@ export interface StorylineApi {
   comfy: {
     /** Is the configured ComfyUI reachable? */
     status(): Promise<Result<ComfyStatus>>
-    /** Create/ensure this shot's linked ComfyUI workflow; returns the updated shot. */
-    linkShot(shotId: string): Promise<Result<Shot>>
-    /** Pull ComfyUI's latest output and attach it to the shot as its Output take. */
-    pullLatest(shotId: string): Promise<Result<Take>>
+    /** Create/ensure this frame's linked ComfyUI workflow; returns the updated frame. */
+    linkFrame(frameId: string): Promise<Result<Frame>>
+    /** Pull ComfyUI's latest output and attach it to the frame as its Output take. */
+    pullLatest(frameId: string): Promise<Result<Take>>
     /** The most recent ComfyUI run + all its output files (for the capture strip). */
     latestRun(): Promise<Result<ComfyRun | null>>
-    /** Download a specific ComfyUI output and attach it to the shot as a take. */
-    captureOutput(shotId: string, output: ComfyOutput): Promise<Result<Take>>
+    /** Download a specific ComfyUI output and attach it to the frame as a take. */
+    captureOutput(frameId: string, output: ComfyOutput): Promise<Result<Take>>
   }
   settings: {
     get(): Promise<Result<AppSettings>>
     setComfyUrl(url: string): Promise<Result<AppSettings>>
   }
   export: {
-    /** Pick a folder and write each shot's Output in order; null if cancelled. */
-    exportShots(): Promise<Result<ExportResult | null>>
+    /** Pick a folder and write each frame's Output in order; null if cancelled. */
+    exportFrames(): Promise<Result<ExportResult | null>>
   }
   moodboard: {
     /** The full board (items + connectors) for the open project. */
@@ -218,10 +218,10 @@ export interface StorylineApi {
     addAsset(assetId: string, x: number, y: number): Promise<Result<MoodboardItem>>
     /** Add a new editable text item at (x, y). */
     addText(x: number, y: number): Promise<Result<MoodboardItem>>
-    /** Create a shot from a library asset AND place a shot node on the canvas. */
-    addShotFromAsset(assetId: string, x: number, y: number): Promise<Result<MoodboardItem>>
-    /** Place an existing shot as a node on the canvas. */
-    addShotItem(shotId: string, x: number, y: number): Promise<Result<MoodboardItem>>
+    /** Create a frame from a library asset AND place a frame node on the canvas. */
+    addFrameFromAsset(assetId: string, x: number, y: number): Promise<Result<MoodboardItem>>
+    /** Place an existing frame as a node on the canvas. */
+    addFrameItem(frameId: string, x: number, y: number): Promise<Result<MoodboardItem>>
     /** Add an empty Preview node at (x, y). */
     addPreview(x: number, y: number): Promise<Result<MoodboardItem>>
     /** Add a resizable layer group container at (x, y). */
