@@ -5,6 +5,7 @@ import { handle } from './handler'
 import {
   ping,
   linkFrameWorkflow,
+  uploadFrameInputs,
   pullLatestToFrame,
   latestRun,
   captureOutput,
@@ -26,6 +27,9 @@ export function registerComfyHandlers(): void {
   handle<[], ComfyStatus>(IpcChannels.comfy.status, () => ping())
   handle<[string], Frame>(IpcChannels.comfy.linkFrame, (frameId) =>
     linkFrameWorkflow(str(frameId, 'frame id')),
+  )
+  handle<[string], string[]>(IpcChannels.comfy.uploadInputs, (frameId) =>
+    uploadFrameInputs(str(frameId, 'frame id')),
   )
   handle<[string], Take>(IpcChannels.comfy.pullLatest, (frameId) =>
     pullLatestToFrame(str(frameId, 'frame id')),

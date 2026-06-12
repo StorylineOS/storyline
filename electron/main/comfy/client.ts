@@ -5,12 +5,18 @@
  * back as a take. Uses Comfy's HTTP API: /system_stats, /upload/image, /history, /view.
  */
 import { join, extname } from 'node:path'
-import { writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
 import type { Take, ComfyStatus, AssetKind, Frame, ComfyOutput, ComfyRun } from '@shared/types'
 import { getSettings } from '../settings/store'
 import { getOpenProjectFolder } from '../db'
-import { addTake, getFrameById, linkWorkflow, frameInputFileNames } from '../frames/store'
+import {
+  addTake,
+  getFrameById,
+  linkWorkflow,
+  frameInputFileNames,
+  frameInputAssetPaths,
+} from '../frames/store'
 import { getCurrentProject } from '../project/store'
 
 function baseUrl(): string {
@@ -111,6 +117,31 @@ export async function linkFrameWorkflow(frameId: string): Promise<Frame> {
     )
   }
   return linkWorkflow(frameId, name)
+}
+
+/**
+ * Upload a frame's input assets to ComfyUI via /upload/image so they're available in
+ * the LoadImage picker — the cloud-safe alternative to sharing a local input folder.
+ * Returns the filenames ComfyUI stored them under. No-op if the frame has no inputs.
+ */
+export async function uploadFrameInputs(frameId: string): Promise<string[]> {
+  const folder = getOpenProjectFolder()
+  if (!folder) throw new Error('No project is open.')
+  const inputs = frameInputAssetPaths(frameId)
+  const uploaded: string[] = []
+  for (const { filePath, name } of inputs) {
+    const bytes = readFileSync(join(folder, filePath))
+    const form = new FormData()
+    form.append('image', new Blob([new Uint8Array(bytes)]), name)
+    form.append('overwrite', 'true')
+    const res = await fetch(`${baseUrl()}/upload/image`, { method: 'POST', body: form })
+    if (!res.ok) {
+      throw new Error(`Could not upload "${name}" to ComfyUI (${res.status}). Is it reachable?`)
+    }
+    const json = (await res.json().catch(() => ({}))) as { name?: string }
+    uploaded.push(json.name ?? name)
+  }
+  return uploaded
 }
 
 interface OutputFile {

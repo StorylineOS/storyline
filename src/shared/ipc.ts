@@ -70,6 +70,7 @@ export const IpcChannels = {
   comfy: {
     status: 'comfy:status',
     linkFrame: 'comfy:linkFrame',
+    uploadInputs: 'comfy:uploadInputs',
     pullLatest: 'comfy:pullLatest',
     latestRun: 'comfy:latestRun',
     captureOutput: 'comfy:captureOutput',
@@ -196,6 +197,8 @@ export interface StorylineApi {
     status(): Promise<Result<ComfyStatus>>
     /** Create/ensure this frame's linked ComfyUI workflow; returns the updated frame. */
     linkFrame(frameId: string): Promise<Result<Frame>>
+    /** Upload the frame's input assets to ComfyUI (cloud-safe); returns stored names. */
+    uploadInputs(frameId: string): Promise<Result<string[]>>
     /** Pull ComfyUI's latest output and attach it to the frame as its Output take. */
     pullLatest(frameId: string): Promise<Result<Take>>
     /** The most recent ComfyUI run + all its output files (for the capture strip). */

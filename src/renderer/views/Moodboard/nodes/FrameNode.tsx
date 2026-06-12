@@ -34,6 +34,7 @@ export function FrameNode({ id, data, selected }: NodeProps): React.JSX.Element 
   const inputs = useFrameStore((s) => s.inputsByFrame[frameId]) ?? []
   const busy = useFrameStore((s) => s.busyId === frameId)
   const linkFrame = useFrameStore((s) => s.linkFrame)
+  const uploadInputs = useFrameStore((s) => s.uploadInputs)
   const reorderInputs = useFrameStore((s) => s.reorderInputs)
   const assets = useAssetStore((s) => s.assets)
   const setMode = useUiStore((s) => s.setMode)
@@ -55,6 +56,9 @@ export function FrameNode({ id, data, selected }: NodeProps): React.JSX.Element 
     setLinkedWorkflow(result?.comfyWorkflowName ?? frame.comfyWorkflowName)
     setActiveFrame(frame.id)
     setMode('generate')
+    // Push this frame's inputs to ComfyUI so they're available in LoadImage — the
+    // cloud-safe path (no shared local folder needed). Best-effort.
+    void uploadInputs(frame.id)
   }
 
   const makeHero = (): void => {

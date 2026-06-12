@@ -33,6 +33,7 @@ interface FrameState {
   reorder: (orderedIds: string[]) => Promise<void>
   remove: (id: string) => Promise<void>
   linkFrame: (id: string) => Promise<Frame | null>
+  uploadInputs: (id: string) => Promise<void>
   pullResult: (id: string) => Promise<void>
   captureOutput: (frameId: string, output: ComfyOutput) => Promise<void>
   exportFrames: () => Promise<void>
@@ -201,6 +202,15 @@ export const useFrameStore = create<FrameState>((set, get) => ({
     } catch (e) {
       set({ error: ipcErrorMessage(e), busyId: null })
       return null
+    }
+  },
+
+  uploadInputs: async (id) => {
+    try {
+      const res = await window.storyline.comfy.uploadInputs(id)
+      if (!res.ok) set({ error: res.error })
+    } catch (e) {
+      set({ error: ipcErrorMessage(e) })
     }
   },
 

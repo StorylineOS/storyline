@@ -256,6 +256,23 @@ export function frameInputFileNames(frameId: string): string[] {
   return ids.map((id) => byId.get(id)).filter((n): n is string => !!n)
 }
 
+/** Asset-backed inputs of a frame: project-relative file path + basename, in order. */
+export function frameInputAssetPaths(frameId: string): Array<{ filePath: string; name: string }> {
+  const ids = frameInputRows(frameId)
+    .map((r) => r.asset_id)
+    .filter((id): id is string => !!id)
+  if (ids.length === 0) return []
+  const placeholders = ids.map(() => '?').join(',')
+  const rows = getDb()
+    .prepare(`SELECT id, file_path FROM assets WHERE id IN (${placeholders})`)
+    .all(...ids) as Array<{ id: string; file_path: string }>
+  const byId = new Map(rows.map((r) => [r.id, r.file_path]))
+  return ids
+    .map((id) => byId.get(id))
+    .filter((p): p is string => !!p)
+    .map((filePath) => ({ filePath, name: filePath.split('/').pop() ?? filePath }))
+}
+
 /** All takes across the project (renderer groups by frameId). */
 export function listAllTakes(): Take[] {
   const rows = getDb()
