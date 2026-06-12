@@ -100,8 +100,12 @@ export interface Asset {
   createdAt: number
 }
 
-/** An item on the Figma/Miro-style moodboard (a free canvas, no time dimension). */
-export type MoodboardItemType = 'asset' | 'text'
+/**
+ * An item on the unified canvas. Beyond ideation items (asset/text), the canvas
+ * also hosts the production graph: `shot` nodes (input/output handles), `layer`
+ * group containers, and `preview` nodes that display a connected shot's output.
+ */
+export type MoodboardItemType = 'asset' | 'text' | 'shot' | 'layer' | 'preview'
 
 export interface TextItemData {
   text: string
@@ -124,6 +128,10 @@ export interface MoodboardItem {
   type: MoodboardItemType
   /** Set when type === 'asset'. */
   assetId: string | null
+  /** Set when type === 'shot' (and reused by 'preview' resolution). */
+  shotId: string | null
+  /** Containing layer item id, if this item lives inside a layer group. */
+  parentId: string | null
   data: MoodboardItemData
   x: number
   y: number

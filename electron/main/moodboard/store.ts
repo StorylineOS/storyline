@@ -6,6 +6,7 @@
 import { randomUUID } from 'node:crypto'
 import type {
   MoodboardItem,
+  MoodboardItemType,
   MoodboardConnector,
   MoodboardSnapshot,
   MoodboardItemData,
@@ -14,6 +15,7 @@ import type {
 import type { MoodboardItemPatch } from '@shared/ipc'
 import { getDb } from '../db'
 import { importViaDialog } from '../assets/store'
+import { addFromAsset as createShotFromAsset } from '../shots/store'
 
 const DEFAULT_SIZE: Record<'image' | 'video' | 'audio', { w: number; h: number }> = {
   image: { w: 320, h: 180 },
@@ -34,8 +36,10 @@ const DEFAULT_TEXT: TextItemData = {
 interface ItemRow {
   id: string
   project_id: string
-  type: 'asset' | 'text'
+  type: MoodboardItemType
   asset_id: string | null
+  shot_id: string | null
+  parent_id: string | null
   data: string | null
   x: number
   y: number
@@ -63,6 +67,8 @@ function rowToItem(row: ItemRow): MoodboardItem {
     projectId: row.project_id,
     type: row.type,
     assetId: row.asset_id,
+    shotId: row.shot_id,
+    parentId: row.parent_id,
     data: row.data ? (JSON.parse(row.data) as MoodboardItemData) : {},
     x: row.x,
     y: row.y,
@@ -112,8 +118,8 @@ function insertItem(item: MoodboardItem): MoodboardItem {
   getDb()
     .prepare(
       `INSERT INTO moodboard_items
-         (id, project_id, type, asset_id, data, x, y, width, height, rotation, z_index, created_at, updated_at)
-       VALUES (@id, @projectId, @type, @assetId, @data, @x, @y, @width, @height, @rotation, @zIndex, @createdAt, @updatedAt)`,
+         (id, project_id, type, asset_id, shot_id, parent_id, data, x, y, width, height, rotation, z_index, created_at, updated_at)
+       VALUES (@id, @projectId, @type, @assetId, @shotId, @parentId, @data, @x, @y, @width, @height, @rotation, @zIndex, @createdAt, @updatedAt)`,
     )
     .run({ ...item, data: JSON.stringify(item.data) })
   return item
@@ -141,6 +147,8 @@ export function addAssetItem(assetId: string, x: number, y: number): MoodboardIt
     projectId: projectId(),
     type: 'asset',
     assetId,
+    shotId: null,
+    parentId: null,
     data: {},
     x,
     y,
@@ -160,11 +168,63 @@ export function addTextItem(x: number, y: number): MoodboardItem {
     projectId: projectId(),
     type: 'text',
     assetId: null,
+    shotId: null,
+    parentId: null,
     data: { text: { ...DEFAULT_TEXT } },
     x,
     y,
     width: 200,
     height: 60,
+    rotation: 0,
+    zIndex: nextZIndex(),
+    createdAt: now,
+    updatedAt: now,
+  })
+}
+
+/** Place an existing shot as a node on the canvas. */
+export function addShotItem(shotId: string, x: number, y: number): MoodboardItem {
+  const now = Date.now()
+  return insertItem({
+    id: randomUUID(),
+    projectId: projectId(),
+    type: 'shot',
+    assetId: null,
+    shotId,
+    parentId: null,
+    data: {},
+    x,
+    y,
+    width: 220,
+    height: 200,
+    rotation: 0,
+    zIndex: nextZIndex(),
+    createdAt: now,
+    updatedAt: now,
+  })
+}
+
+/** Create a shot from a library asset AND place a shot node on the canvas. */
+export function addShotFromAsset(assetId: string, x: number, y: number): MoodboardItem {
+  const shot = createShotFromAsset(assetId)
+  return addShotItem(shot.id, x, y)
+}
+
+/** Add an empty Preview node (displays a connected shot's hero output). */
+export function addPreview(x: number, y: number): MoodboardItem {
+  const now = Date.now()
+  return insertItem({
+    id: randomUUID(),
+    projectId: projectId(),
+    type: 'preview',
+    assetId: null,
+    shotId: null,
+    parentId: null,
+    data: {},
+    x,
+    y,
+    width: 280,
+    height: 220,
     rotation: 0,
     zIndex: nextZIndex(),
     createdAt: now,

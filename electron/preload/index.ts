@@ -78,6 +78,12 @@ const api: StorylineApi = {
     addAsset: (assetId: string, x: number, y: number) =>
       ipcRenderer.invoke(IpcChannels.moodboard.addAsset, assetId, x, y),
     addText: (x: number, y: number) => ipcRenderer.invoke(IpcChannels.moodboard.addText, x, y),
+    addShotFromAsset: (assetId: string, x: number, y: number) =>
+      ipcRenderer.invoke(IpcChannels.moodboard.addShotFromAsset, assetId, x, y),
+    addShotItem: (shotId: string, x: number, y: number) =>
+      ipcRenderer.invoke(IpcChannels.moodboard.addShotItem, shotId, x, y),
+    addPreview: (x: number, y: number) =>
+      ipcRenderer.invoke(IpcChannels.moodboard.addPreview, x, y),
     updateItem: (id: string, patch: MoodboardItemPatch) =>
       ipcRenderer.invoke(IpcChannels.moodboard.updateItem, id, patch),
     deleteItem: (id: string) => ipcRenderer.invoke(IpcChannels.moodboard.deleteItem, id),

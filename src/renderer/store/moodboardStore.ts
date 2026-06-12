@@ -18,9 +18,14 @@ interface MoodboardState {
   load: () => Promise<void>
   addAssetAt: (assetId: string, x: number, y: number) => Promise<void>
   addTextAt: (x: number, y: number) => Promise<void>
+  addShotFromAsset: (assetId: string, x: number, y: number) => Promise<void>
+  addShotItem: (shotId: string, x: number, y: number) => Promise<void>
+  addPreview: (x: number, y: number) => Promise<void>
   importAndPlace: (x: number, y: number) => Promise<MoodboardItem[]>
   updateItem: (id: string, patch: MoodboardItemPatch) => Promise<void>
   deleteItem: (id: string) => Promise<void>
+  connect: (fromItemId: string, toItemId: string) => Promise<void>
+  disconnect: (connectorId: string) => Promise<void>
   reset: () => void
 }
 
@@ -69,6 +74,56 @@ export const useMoodboardStore = create<MoodboardState>((set) => ({
       const res = await window.storyline.moodboard.addText(x, y)
       if (!res.ok) return set({ error: res.error })
       set((s) => ({ items: [...s.items, res.value] }))
+    } catch (e) {
+      set({ error: ipcErrorMessage(e) })
+    }
+  },
+
+  addShotFromAsset: async (assetId, x, y) => {
+    try {
+      const res = await window.storyline.moodboard.addShotFromAsset(assetId, x, y)
+      if (!res.ok) return set({ error: res.error })
+      set((s) => ({ items: [...s.items, res.value] }))
+    } catch (e) {
+      set({ error: ipcErrorMessage(e) })
+    }
+  },
+
+  addShotItem: async (shotId, x, y) => {
+    try {
+      const res = await window.storyline.moodboard.addShotItem(shotId, x, y)
+      if (!res.ok) return set({ error: res.error })
+      set((s) => ({ items: [...s.items, res.value] }))
+    } catch (e) {
+      set({ error: ipcErrorMessage(e) })
+    }
+  },
+
+  addPreview: async (x, y) => {
+    try {
+      const res = await window.storyline.moodboard.addPreview(x, y)
+      if (!res.ok) return set({ error: res.error })
+      set((s) => ({ items: [...s.items, res.value] }))
+    } catch (e) {
+      set({ error: ipcErrorMessage(e) })
+    }
+  },
+
+  connect: async (fromItemId, toItemId) => {
+    try {
+      const res = await window.storyline.moodboard.createConnector(fromItemId, toItemId)
+      if (!res.ok) return set({ error: res.error })
+      set((s) => ({ connectors: [...s.connectors, res.value] }))
+    } catch (e) {
+      set({ error: ipcErrorMessage(e) })
+    }
+  },
+
+  disconnect: async (connectorId) => {
+    try {
+      const res = await window.storyline.moodboard.deleteConnector(connectorId)
+      if (!res.ok) return set({ error: res.error })
+      set((s) => ({ connectors: s.connectors.filter((c) => c.id !== connectorId) }))
     } catch (e) {
       set({ error: ipcErrorMessage(e) })
     }

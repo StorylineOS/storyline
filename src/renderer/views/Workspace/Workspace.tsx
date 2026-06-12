@@ -97,8 +97,8 @@ function ModeToggle({
   onChange: (m: WorkspaceMode) => void
 }): React.JSX.Element {
   const labels: Record<WorkspaceMode, string> = {
-    edit: 'Sequence',
-    moodboard: 'Moodboard',
+    edit: 'Timeline',
+    moodboard: 'Sequence',
     generate: 'Generate',
   }
   return (

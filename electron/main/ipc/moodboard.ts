@@ -6,6 +6,9 @@ import {
   listBoard,
   addAssetItem,
   addTextItem,
+  addShotFromAsset,
+  addShotItem,
+  addPreview,
   updateItem,
   deleteItem,
   importAndPlace,
@@ -32,6 +35,20 @@ export function registerMoodboardHandlers(): void {
 
   handle<[number, number], MoodboardItem>(IpcChannels.moodboard.addText, (x, y) =>
     addTextItem(num(x, 'x'), num(y, 'y')),
+  )
+
+  handle<[string, number, number], MoodboardItem>(
+    IpcChannels.moodboard.addShotFromAsset,
+    (assetId, x, y) => addShotFromAsset(str(assetId, 'asset id'), num(x, 'x'), num(y, 'y')),
+  )
+
+  handle<[string, number, number], MoodboardItem>(
+    IpcChannels.moodboard.addShotItem,
+    (shotId, x, y) => addShotItem(str(shotId, 'shot id'), num(x, 'x'), num(y, 'y')),
+  )
+
+  handle<[number, number], MoodboardItem>(IpcChannels.moodboard.addPreview, (x, y) =>
+    addPreview(num(x, 'x'), num(y, 'y')),
   )
 
   handle<[string, MoodboardItemPatch], MoodboardItem>(

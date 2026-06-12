@@ -85,6 +85,9 @@ export const IpcChannels = {
     list: 'moodboard:list',
     addAsset: 'moodboard:addAsset',
     addText: 'moodboard:addText',
+    addShotFromAsset: 'moodboard:addShotFromAsset',
+    addShotItem: 'moodboard:addShotItem',
+    addPreview: 'moodboard:addPreview',
     updateItem: 'moodboard:updateItem',
     deleteItem: 'moodboard:deleteItem',
     importAndPlace: 'moodboard:importAndPlace',
@@ -212,6 +215,12 @@ export interface StorylineApi {
     addAsset(assetId: string, x: number, y: number): Promise<Result<MoodboardItem>>
     /** Add a new editable text item at (x, y). */
     addText(x: number, y: number): Promise<Result<MoodboardItem>>
+    /** Create a shot from a library asset AND place a shot node on the canvas. */
+    addShotFromAsset(assetId: string, x: number, y: number): Promise<Result<MoodboardItem>>
+    /** Place an existing shot as a node on the canvas. */
+    addShotItem(shotId: string, x: number, y: number): Promise<Result<MoodboardItem>>
+    /** Add an empty Preview node at (x, y). */
+    addPreview(x: number, y: number): Promise<Result<MoodboardItem>>
     updateItem(id: string, patch: MoodboardItemPatch): Promise<Result<MoodboardItem>>
     deleteItem(id: string): Promise<Result<void>>
     /** Import media into the shared library AND place it on the board near (x, y). */

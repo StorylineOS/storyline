@@ -5,7 +5,7 @@
  */
 import type BetterSqlite3 from 'better-sqlite3'
 
-export const SCHEMA_VERSION = 6
+export const SCHEMA_VERSION = 7
 
 const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS project (
@@ -47,10 +47,11 @@ CREATE TABLE IF NOT EXISTS takes (
 );
 
 CREATE TABLE IF NOT EXISTS shot_inputs (
-  id          TEXT PRIMARY KEY,
-  shot_id     TEXT NOT NULL,
-  asset_id    TEXT NOT NULL,
-  position    INTEGER NOT NULL
+  id             TEXT PRIMARY KEY,
+  shot_id        TEXT NOT NULL,
+  asset_id       TEXT,
+  source_shot_id TEXT,
+  position       INTEGER NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS asset_folders (
@@ -77,6 +78,8 @@ CREATE TABLE IF NOT EXISTS moodboard_items (
   project_id  TEXT NOT NULL,
   type        TEXT NOT NULL DEFAULT 'asset',
   asset_id    TEXT,
+  shot_id     TEXT,
+  parent_id   TEXT,
   data        TEXT,
   x           REAL NOT NULL,
   y           REAL NOT NULL,
@@ -178,6 +181,15 @@ function migrateColumns(db: BetterSqlite3.Database): void {
 
   // v4 → v5: shots gain a linked ComfyUI workflow name.
   addColumnIfMissing(db, 'shots', 'comfy_workflow_name', 'TEXT')
+
+  // v5 → v6: shots gain a source asset reference (shot_inputs created by SCHEMA_SQL).
+  // (shot_inputs.comfy_workflow handled above; nothing else here.)
+
+  // v6 → v7: moodboard items can be shots/layers/previews on the unified canvas.
+  addColumnIfMissing(db, 'moodboard_items', 'shot_id', 'TEXT')
+  addColumnIfMissing(db, 'moodboard_items', 'parent_id', 'TEXT')
+  // shot_inputs can reference another shot's output (the refine/flow connector).
+  addColumnIfMissing(db, 'shot_inputs', 'source_shot_id', 'TEXT')
 }
 
 function addColumnIfMissing(
