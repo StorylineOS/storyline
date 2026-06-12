@@ -210,6 +210,29 @@ export function addShotFromAsset(assetId: string, x: number, y: number): Moodboa
   return addShotItem(shot.id, x, y)
 }
 
+/** Add a resizable layer group container (shots can be dropped inside it). */
+export function addLayer(x: number, y: number): MoodboardItem {
+  const now = Date.now()
+  return insertItem({
+    id: randomUUID(),
+    projectId: projectId(),
+    type: 'layer',
+    assetId: null,
+    shotId: null,
+    parentId: null,
+    data: { name: 'Layer' },
+    x,
+    y,
+    width: 420,
+    height: 300,
+    rotation: 0,
+    // Layers sit behind everything else so shots render on top of them.
+    zIndex: 0,
+    createdAt: now,
+    updatedAt: now,
+  })
+}
+
 /** Add an empty Preview node (displays a connected shot's hero output). */
 export function addPreview(x: number, y: number): MoodboardItem {
   const now = Date.now()
@@ -255,6 +278,10 @@ export function updateItem(id: string, patch: MoodboardItemPatch): MoodboardItem
     sets.push('data = @data')
     params.data = JSON.stringify(patch.data)
   }
+  if (patch.parentId !== undefined) {
+    sets.push('parent_id = @parentId')
+    params.parentId = patch.parentId
+  }
   sets.push('updated_at = @updatedAt')
   getDb()
     .prepare(`UPDATE moodboard_items SET ${sets.join(', ')} WHERE id = @id`)
@@ -280,7 +307,12 @@ export async function importAndPlace(x: number, y: number): Promise<MoodboardIte
   return assets.map((asset, i) => addAssetItem(asset.id, x + i * 28, y + i * 28))
 }
 
-export function createConnector(fromItemId: string, toItemId: string): MoodboardConnector {
+export function createConnector(
+  fromItemId: string,
+  toItemId: string,
+  sourceHandle: string | null = null,
+  targetHandle: string | null = null,
+): MoodboardConnector {
   getItem(fromItemId)
   getItem(toItemId)
   const connector: MoodboardConnector = {
@@ -289,7 +321,9 @@ export function createConnector(fromItemId: string, toItemId: string): Moodboard
     fromItemId,
     toItemId,
     label: null,
-    data: {},
+    // Remember which handles the edge attached to so it re-renders on the same
+    // sides (shots have several handles: 'out' plus visual 'vl'/'vr'/'vb').
+    data: { sourceHandle, targetHandle },
     createdAt: Date.now(),
   }
   getDb()

@@ -88,6 +88,7 @@ export const IpcChannels = {
     addShotFromAsset: 'moodboard:addShotFromAsset',
     addShotItem: 'moodboard:addShotItem',
     addPreview: 'moodboard:addPreview',
+    addLayer: 'moodboard:addLayer',
     updateItem: 'moodboard:updateItem',
     deleteItem: 'moodboard:deleteItem',
     importAndPlace: 'moodboard:importAndPlace',
@@ -108,6 +109,8 @@ export interface MoodboardItemPatch {
   rotation?: number
   zIndex?: number
   data?: MoodboardItemData
+  /** Containing layer id, or null to detach from any layer. */
+  parentId?: string | null
 }
 
 export interface CreateFolderInput {
@@ -221,11 +224,18 @@ export interface StorylineApi {
     addShotItem(shotId: string, x: number, y: number): Promise<Result<MoodboardItem>>
     /** Add an empty Preview node at (x, y). */
     addPreview(x: number, y: number): Promise<Result<MoodboardItem>>
+    /** Add a resizable layer group container at (x, y). */
+    addLayer(x: number, y: number): Promise<Result<MoodboardItem>>
     updateItem(id: string, patch: MoodboardItemPatch): Promise<Result<MoodboardItem>>
     deleteItem(id: string): Promise<Result<void>>
     /** Import media into the shared library AND place it on the board near (x, y). */
     importAndPlace(x: number, y: number): Promise<Result<MoodboardItem[]>>
-    createConnector(fromItemId: string, toItemId: string): Promise<Result<MoodboardConnector>>
+    createConnector(
+      fromItemId: string,
+      toItemId: string,
+      sourceHandle?: string | null,
+      targetHandle?: string | null,
+    ): Promise<Result<MoodboardConnector>>
     deleteConnector(id: string): Promise<Result<void>>
   }
   dialog: {

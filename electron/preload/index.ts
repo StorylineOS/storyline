@@ -84,13 +84,25 @@ const api: StorylineApi = {
       ipcRenderer.invoke(IpcChannels.moodboard.addShotItem, shotId, x, y),
     addPreview: (x: number, y: number) =>
       ipcRenderer.invoke(IpcChannels.moodboard.addPreview, x, y),
+    addLayer: (x: number, y: number) => ipcRenderer.invoke(IpcChannels.moodboard.addLayer, x, y),
     updateItem: (id: string, patch: MoodboardItemPatch) =>
       ipcRenderer.invoke(IpcChannels.moodboard.updateItem, id, patch),
     deleteItem: (id: string) => ipcRenderer.invoke(IpcChannels.moodboard.deleteItem, id),
     importAndPlace: (x: number, y: number) =>
       ipcRenderer.invoke(IpcChannels.moodboard.importAndPlace, x, y),
-    createConnector: (fromItemId: string, toItemId: string) =>
-      ipcRenderer.invoke(IpcChannels.moodboard.createConnector, fromItemId, toItemId),
+    createConnector: (
+      fromItemId: string,
+      toItemId: string,
+      sourceHandle: string | null = null,
+      targetHandle: string | null = null,
+    ) =>
+      ipcRenderer.invoke(
+        IpcChannels.moodboard.createConnector,
+        fromItemId,
+        toItemId,
+        sourceHandle,
+        targetHandle,
+      ),
     deleteConnector: (id: string) => ipcRenderer.invoke(IpcChannels.moodboard.deleteConnector, id),
   },
   dialog: {

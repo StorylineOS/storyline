@@ -9,6 +9,7 @@ import {
   addShotFromAsset,
   addShotItem,
   addPreview,
+  addLayer,
   updateItem,
   deleteItem,
   importAndPlace,
@@ -51,6 +52,10 @@ export function registerMoodboardHandlers(): void {
     addPreview(num(x, 'x'), num(y, 'y')),
   )
 
+  handle<[number, number], MoodboardItem>(IpcChannels.moodboard.addLayer, (x, y) =>
+    addLayer(num(x, 'x'), num(y, 'y')),
+  )
+
   handle<[string, MoodboardItemPatch], MoodboardItem>(
     IpcChannels.moodboard.updateItem,
     (id, patch) => {
@@ -65,8 +70,15 @@ export function registerMoodboardHandlers(): void {
     importAndPlace(num(x, 'x'), num(y, 'y')),
   )
 
-  handle<[string, string], MoodboardConnector>(IpcChannels.moodboard.createConnector, (from, to) =>
-    createConnector(str(from, 'from id'), str(to, 'to id')),
+  handle<[string, string, string | null, string | null], MoodboardConnector>(
+    IpcChannels.moodboard.createConnector,
+    (from, to, sourceHandle, targetHandle) =>
+      createConnector(
+        str(from, 'from id'),
+        str(to, 'to id'),
+        typeof sourceHandle === 'string' ? sourceHandle : null,
+        typeof targetHandle === 'string' ? targetHandle : null,
+      ),
   )
 
   handle<[string], void>(IpcChannels.moodboard.deleteConnector, (id) =>

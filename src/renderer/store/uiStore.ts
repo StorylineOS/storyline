@@ -1,7 +1,7 @@
 /** Workspace-level UI state: which top-level mode/tab is active. */
 import { create } from 'zustand'
 
-export type WorkspaceMode = 'edit' | 'moodboard' | 'generate'
+export type WorkspaceMode = 'moodboard' | 'generate'
 
 interface UiState {
   mode: WorkspaceMode
@@ -15,7 +15,7 @@ interface UiState {
 }
 
 export const useUiStore = create<UiState>((set) => ({
-  mode: 'edit',
+  mode: 'moodboard',
   linkedWorkflow: null,
   activeShotId: null,
   setMode: (mode) => set({ mode }),

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { mediaUrl } from '@shared/media'
 import { useShotStore } from '../../../store/shotStore'
@@ -9,27 +10,43 @@ interface ShotNodeData extends Record<string, unknown> {
   shotId: string
 }
 
+/** Small, both-source-and-target (loose mode) handle for purely-visual shot links. */
+function VisualHandle({ id, position }: { id: string; position: Position }): React.JSX.Element {
+  return (
+    <Handle
+      type="source"
+      id={id}
+      position={position}
+      className="!h-2.5 !w-2.5 !border !border-zinc-800 !bg-zinc-500 opacity-60 hover:!bg-accent hover:opacity-100"
+    />
+  )
+}
+
 /**
- * A shot on the canvas: input handle (left), output handle (right). Shows the shot's
- * name, a couple of input thumbnails, the hero output, and Link/Open Workflow.
- * Reads live shot data from the store by id (so it updates without node rebuilds).
+ * A shot on the canvas, styled like a preview: the body shows the shot's hero
+ * input (carousel + "set as hero" when it has several). The header carries the
+ * functional Output handle (wire it to a Preview/output node to see the result).
+ * Three side handles allow purely-visual shot↔shot links (Miro-style).
  */
 export function ShotNode({ id, data, selected }: NodeProps): React.JSX.Element {
   const { shotId } = data as ShotNodeData
   const shot = useShotStore((s) => s.shots.find((sh) => sh.id === shotId))
   const inputs = useShotStore((s) => s.inputsByShot[shotId]) ?? []
-  const takes = useShotStore((s) => s.takesByShot[shotId]) ?? []
   const busy = useShotStore((s) => s.busyId === shotId)
   const linkShot = useShotStore((s) => s.linkShot)
+  const reorderInputs = useShotStore((s) => s.reorderInputs)
   const assets = useAssetStore((s) => s.assets)
   const setMode = useUiStore((s) => s.setMode)
   const setLinkedWorkflow = useUiStore((s) => s.setLinkedWorkflow)
   const setActiveShot = useUiStore((s) => s.setActiveShot)
+  const [idx, setIdx] = useState(0)
 
-  const inputThumbs = inputs
+  const thumbs = inputs
     .map((i) => assets.find((a) => a.id === i.assetId))
     .filter((a): a is NonNullable<typeof a> => !!a)
-  const hero = takes.find((t) => t.id === shot?.heroTakeId)
+  const count = thumbs.length
+  const safeIdx = count ? Math.min(idx, count - 1) : 0
+  const cur = count ? thumbs[safeIdx] : undefined
   const linked = !!shot?.comfyWorkflowName
 
   const onLink = async (): Promise<void> => {
@@ -40,69 +57,120 @@ export function ShotNode({ id, data, selected }: NodeProps): React.JSX.Element {
     setMode('generate')
   }
 
+  const makeHero = (): void => {
+    if (!cur || safeIdx === 0) return
+    const ordered = [cur.id, ...thumbs.filter((_, i) => i !== safeIdx).map((a) => a.id)]
+    void reorderInputs(shotId, ordered)
+    setIdx(0)
+  }
+
   return (
     <>
-      <Handle type="target" position={Position.Left} id="in" className="!h-3 !w-3 !bg-accent" />
-      <NodeFrame id={id} selected={!!selected} minWidth={180} minHeight={150}>
-        <div className="flex h-full w-full flex-col gap-1 p-1.5">
-          <span className="flex items-center gap-1 truncate text-xs font-medium text-zinc-200">
-            {linked && <span title="Linked to a ComfyUI workflow">🔗</span>}
-            Shot {shot?.name ?? '—'}
-          </span>
-
-          <div className="flex flex-1 gap-1.5">
-            <div className="flex flex-1 flex-col gap-0.5">
-              <span className="text-[9px] uppercase text-zinc-500">In</span>
-              <div className="flex flex-wrap gap-1">
-                {inputThumbs.slice(0, 3).map((a) => (
-                  <Thumb key={a.id} url={mediaUrl(a.filePath)} kind={a.kind} />
-                ))}
-                {inputThumbs.length > 3 && (
-                  <span className="text-[10px] text-zinc-500">+{inputThumbs.length - 3}</span>
-                )}
-              </div>
-            </div>
-            <div className="flex flex-1 flex-col gap-0.5">
-              <span className="text-[9px] uppercase text-zinc-500">Out</span>
-              {hero ? (
-                <Thumb url={mediaUrl(hero.filePath)} kind={hero.kind} big />
-              ) : (
-                <span className="text-[10px] text-zinc-600">none</span>
-              )}
-            </div>
+      <NodeFrame id={id} selected={!!selected} minWidth={200} minHeight={170} padded={false}>
+        <div className="flex h-full w-full flex-col">
+          <div className="flex items-center gap-1.5 border-b border-border bg-panel px-2 py-1">
+            <span className="min-w-0 flex-1 truncate text-xs font-semibold text-zinc-100">
+              Shot {shot?.name ?? '—'}
+            </span>
+            <span className="flex shrink-0 items-center gap-1 text-[10px] font-medium text-indigo-300">
+              Output
+              <Handle
+                type="source"
+                id="out"
+                position={Position.Right}
+                style={{
+                  position: 'relative',
+                  top: 'auto',
+                  right: 'auto',
+                  left: 'auto',
+                  transform: 'none',
+                }}
+                className="!h-3 !w-3 !border-2 !border-surface !bg-indigo-400"
+              />
+            </span>
           </div>
 
-          <button
-            onClick={() => void onLink()}
-            disabled={busy}
-            className="nodrag rounded border border-border py-0.5 text-[10px] font-medium text-zinc-200 hover:bg-surface disabled:opacity-40"
-          >
-            {busy ? '…' : linked ? 'Open Workflow' : 'Link Workflow'}
-          </button>
+          <div className="relative flex flex-1 items-center justify-center overflow-hidden bg-black">
+            {cur ? (
+              cur.kind === 'video' ? (
+                <video
+                  src={mediaUrl(cur.filePath)}
+                  muted
+                  preload="metadata"
+                  className="max-h-full max-w-full object-contain"
+                />
+              ) : cur.kind === 'audio' ? (
+                <span className="text-2xl">🎵</span>
+              ) : (
+                <img
+                  src={mediaUrl(cur.filePath)}
+                  alt=""
+                  className="max-h-full max-w-full object-contain"
+                />
+              )
+            ) : (
+              <span className="p-3 text-center text-[11px] text-zinc-600">
+                Drop an asset to set this shot&apos;s input
+              </span>
+            )}
+
+            <button
+              onClick={() => void onLink()}
+              disabled={busy}
+              title={linked ? 'Open the linked ComfyUI workflow' : 'Link a ComfyUI workflow'}
+              className="nodrag absolute bottom-1 right-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-zinc-100 hover:bg-black/90 disabled:opacity-40"
+            >
+              {busy ? '…' : linked ? '🔗 Open Workflow' : '⛓ Link Workflow'}
+            </button>
+
+            {count > 1 && (
+              <>
+                <button
+                  onClick={() => setIdx(() => (safeIdx - 1 + count) % count)}
+                  className="nodrag absolute left-1 top-1/2 -translate-y-1/2 rounded-full bg-black/60 px-1.5 text-sm text-white hover:bg-black/80"
+                >
+                  ‹
+                </button>
+                <button
+                  onClick={() => setIdx(() => (safeIdx + 1) % count)}
+                  className="nodrag absolute right-1 top-1/2 -translate-y-1/2 rounded-full bg-black/60 px-1.5 text-sm text-white hover:bg-black/80"
+                >
+                  ›
+                </button>
+                <div className="absolute bottom-1 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-black/60 px-2 py-0.5">
+                  {thumbs.map((a, i) => (
+                    <span
+                      key={a.id}
+                      className={`h-1.5 w-1.5 rounded-full ${
+                        i === safeIdx ? 'bg-white' : 'bg-zinc-500'
+                      }`}
+                    />
+                  ))}
+                </div>
+                {safeIdx === 0 ? (
+                  <span className="absolute left-1 top-1 rounded bg-emerald-500/80 px-1 text-[9px] font-medium text-white">
+                    Hero
+                  </span>
+                ) : (
+                  <button
+                    onClick={makeHero}
+                    title="Use this input as the hero"
+                    className="nodrag absolute left-1 top-1 rounded bg-black/60 px-1 text-[9px] text-amber-300 hover:bg-black/80"
+                  >
+                    ★ Set hero
+                  </button>
+                )}
+              </>
+            )}
+          </div>
         </div>
       </NodeFrame>
-      <Handle type="source" position={Position.Right} id="out" className="!h-3 !w-3 !bg-accent" />
-    </>
-  )
-}
 
-function Thumb({
-  url,
-  kind,
-  big,
-}: {
-  url: string
-  kind: 'image' | 'video' | 'audio'
-  big?: boolean
-}): React.JSX.Element {
-  const size = big ? 'h-12 w-full' : 'h-8 w-8'
-  return (
-    <div className={`overflow-hidden rounded border border-border bg-black/40 ${size}`}>
-      {kind === 'image' && <img src={url} alt="" className="h-full w-full object-cover" />}
-      {kind === 'video' && (
-        <video src={url} muted preload="metadata" className="h-full w-full object-cover" />
-      )}
-      {kind === 'audio' && <span className="text-sm">🎵</span>}
-    </div>
+      {/* Visual-only links (no data flow), connectable on all four sides. */}
+      <VisualHandle id="vt" position={Position.Top} />
+      <VisualHandle id="vl" position={Position.Left} />
+      <VisualHandle id="vr" position={Position.Right} />
+      <VisualHandle id="vb" position={Position.Bottom} />
+    </>
   )
 }

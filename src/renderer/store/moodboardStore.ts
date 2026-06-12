@@ -8,6 +8,7 @@ import { create } from 'zustand'
 import type { MoodboardItem, MoodboardConnector } from '@shared/types'
 import type { MoodboardItemPatch } from '@shared/ipc'
 import { ipcErrorMessage } from '../lib/ipcError'
+import { useShotStore } from './shotStore'
 
 interface MoodboardState {
   items: MoodboardItem[]
@@ -21,10 +22,23 @@ interface MoodboardState {
   addShotFromAsset: (assetId: string, x: number, y: number) => Promise<void>
   addShotItem: (shotId: string, x: number, y: number) => Promise<void>
   addPreview: (x: number, y: number) => Promise<void>
+  addLayer: (x: number, y: number) => Promise<void>
+  /** Place an existing asset on the board, parented to a layer when given. */
+  addShotFromAssetInLayer: (
+    assetId: string,
+    x: number,
+    y: number,
+    parentId: string | null,
+  ) => Promise<void>
   importAndPlace: (x: number, y: number) => Promise<MoodboardItem[]>
   updateItem: (id: string, patch: MoodboardItemPatch) => Promise<void>
   deleteItem: (id: string) => Promise<void>
-  connect: (fromItemId: string, toItemId: string) => Promise<void>
+  connect: (
+    fromItemId: string,
+    toItemId: string,
+    sourceHandle?: string | null,
+    targetHandle?: string | null,
+  ) => Promise<void>
   disconnect: (connectorId: string) => Promise<void>
   reset: () => void
 }
@@ -39,6 +53,8 @@ function applyPatch(item: MoodboardItem, patch: MoodboardItemPatch): MoodboardIt
     rotation: patch.rotation ?? item.rotation,
     zIndex: patch.zIndex ?? item.zIndex,
     data: patch.data ?? item.data,
+    // parentId can be set to null (detach), so distinguish "absent" from "null".
+    parentId: patch.parentId !== undefined ? patch.parentId : item.parentId,
   }
 }
 
@@ -109,9 +125,42 @@ export const useMoodboardStore = create<MoodboardState>((set) => ({
     }
   },
 
-  connect: async (fromItemId, toItemId) => {
+  addLayer: async (x, y) => {
     try {
-      const res = await window.storyline.moodboard.createConnector(fromItemId, toItemId)
+      const res = await window.storyline.moodboard.addLayer(x, y)
+      if (!res.ok) return set({ error: res.error })
+      set((s) => ({ items: [...s.items, res.value] }))
+    } catch (e) {
+      set({ error: ipcErrorMessage(e) })
+    }
+  },
+
+  addShotFromAssetInLayer: async (assetId, x, y, parentId) => {
+    try {
+      const res = await window.storyline.moodboard.addShotFromAsset(assetId, x, y)
+      if (!res.ok) return set({ error: res.error })
+      let item = res.value
+      if (parentId) {
+        const patched = await window.storyline.moodboard.updateItem(item.id, { parentId })
+        if (patched.ok) item = patched.value
+      }
+      set((s) => ({ items: [...s.items, item] }))
+      // The shot + its input row were created in main; refresh the shot store so
+      // the new ShotNode shows its name, input asset, and (future) takes.
+      await useShotStore.getState().load()
+    } catch (e) {
+      set({ error: ipcErrorMessage(e) })
+    }
+  },
+
+  connect: async (fromItemId, toItemId, sourceHandle = null, targetHandle = null) => {
+    try {
+      const res = await window.storyline.moodboard.createConnector(
+        fromItemId,
+        toItemId,
+        sourceHandle,
+        targetHandle,
+      )
       if (!res.ok) return set({ error: res.error })
       set((s) => ({ connectors: [...s.connectors, res.value] }))
     } catch (e) {

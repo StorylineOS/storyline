@@ -120,6 +120,8 @@ export interface TextItemData {
 /** Type-specific payload for a moodboard item (currently just text styling). */
 export interface MoodboardItemData {
   text?: TextItemData
+  /** Display name for a layer group. */
+  name?: string
 }
 
 export interface MoodboardItem {

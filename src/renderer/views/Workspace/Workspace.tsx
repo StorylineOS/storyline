@@ -1,4 +1,3 @@
-import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import type { Project } from '@shared/types'
 import { Logo } from '../../components/Logo'
 import { useProjectStore } from '../../store/projectStore'
@@ -6,14 +5,10 @@ import { useAssetStore } from '../../store/assetStore'
 import { useMoodboardStore } from '../../store/moodboardStore'
 import { useShotStore } from '../../store/shotStore'
 import { useUiStore, type WorkspaceMode } from '../../store/uiStore'
-import { LibraryPanel } from '../Library/LibraryPanel'
-import { PreviewPanel } from '../Preview/PreviewPanel'
-import { TimelinePanel } from '../Timeline/TimelinePanel'
 import { MoodboardPanel } from '../Moodboard/MoodboardPanel'
 import { GeneratePanel } from '../Generate/GeneratePanel'
-import { ShotInspector } from '../ShotInspector/ShotInspector'
 
-/** The main editing shell (iMovie-style): assets left, preview right, timeline bottom. */
+/** The main shell: a node canvas ("Storyline") plus the embedded ComfyUI Generate tab. */
 export function Workspace({ project }: { project: Project }): React.JSX.Element {
   const mode = useUiStore((s) => s.mode)
   const setMode = useUiStore((s) => s.setMode)
@@ -21,10 +16,9 @@ export function Workspace({ project }: { project: Project }): React.JSX.Element 
   const resetAssets = useAssetStore((s) => s.reset)
   const resetBoard = useMoodboardStore((s) => s.reset)
   const resetShots = useShotStore((s) => s.reset)
-  const selectedShotId = useShotStore((s) => s.selectedId)
 
   const onClose = (): void => {
-    setMode('edit')
+    setMode('moodboard')
     resetAssets()
     resetBoard()
     resetShots()
@@ -63,27 +57,9 @@ export function Workspace({ project }: { project: Project }): React.JSX.Element 
           <GeneratePanel />
         </div>
 
-        {mode === 'moodboard' && <MoodboardPanel />}
-
-        {mode === 'edit' && (
-          <PanelGroup direction="vertical" autoSaveId="storyline:workspace:v">
-            <Panel defaultSize={62} minSize={30}>
-              <PanelGroup direction="horizontal" autoSaveId="storyline:workspace:h">
-                <Panel defaultSize={30} minSize={18} maxSize={50}>
-                  <LibraryPanel />
-                </Panel>
-                <ResizeHandle orientation="vertical" />
-                <Panel defaultSize={70} minSize={30}>
-                  {selectedShotId ? <ShotInspector shotId={selectedShotId} /> : <PreviewPanel />}
-                </Panel>
-              </PanelGroup>
-            </Panel>
-            <ResizeHandle orientation="horizontal" />
-            <Panel defaultSize={38} minSize={15}>
-              <TimelinePanel />
-            </Panel>
-          </PanelGroup>
-        )}
+        <div className={mode === 'moodboard' ? 'h-full' : 'hidden'}>
+          <MoodboardPanel />
+        </div>
       </main>
     </div>
   )
@@ -97,13 +73,12 @@ function ModeToggle({
   onChange: (m: WorkspaceMode) => void
 }): React.JSX.Element {
   const labels: Record<WorkspaceMode, string> = {
-    edit: 'Timeline',
-    moodboard: 'Sequence',
+    moodboard: 'Storyline',
     generate: 'Generate',
   }
   return (
     <div className="flex rounded-md border border-border bg-panel p-0.5 text-xs">
-      {(['edit', 'moodboard', 'generate'] as const).map((m) => (
+      {(['moodboard', 'generate'] as const).map((m) => (
         <button
           key={m}
           onClick={() => onChange(m)}
@@ -115,19 +90,5 @@ function ModeToggle({
         </button>
       ))}
     </div>
-  )
-}
-
-/** A divider that shows a subtle handle and highlights on drag. */
-function ResizeHandle({
-  orientation,
-}: {
-  orientation: 'horizontal' | 'vertical'
-}): React.JSX.Element {
-  const base = orientation === 'vertical' ? 'w-1.5 cursor-col-resize' : 'h-1.5 cursor-row-resize'
-  return (
-    <PanelResizeHandle
-      className={`${base} bg-border transition-colors data-[resize-handle-state=drag]:bg-accent data-[resize-handle-state=hover]:bg-zinc-600`}
-    />
   )
 }
