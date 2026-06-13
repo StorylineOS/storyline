@@ -32,8 +32,14 @@ interface FrameState {
   rename: (id: string, name: string) => Promise<void>
   reorder: (orderedIds: string[]) => Promise<void>
   remove: (id: string) => Promise<void>
+  /** Duplicate a frame (inputs + workflow); returns the new frame. */
+  clone: (id: string) => Promise<Frame | null>
+  /** Detach the frame's ComfyUI workflow link. */
+  unlink: (id: string) => Promise<void>
   linkFrame: (id: string) => Promise<Frame | null>
   uploadInputs: (id: string) => Promise<void>
+  /** Pull the frame's workflow from ComfyUI into the durable project copy. */
+  pullWorkflow: (id: string) => Promise<void>
   pullResult: (id: string) => Promise<void>
   captureOutput: (frameId: string, output: ComfyOutput) => Promise<void>
   exportFrames: () => Promise<void>
@@ -214,6 +220,14 @@ export const useFrameStore = create<FrameState>((set, get) => ({
     }
   },
 
+  pullWorkflow: async (id) => {
+    try {
+      await window.storyline.comfy.pullWorkflow(id)
+    } catch {
+      // best-effort sync — a transient failure shouldn't surface as an error
+    }
+  },
+
   pullResult: async (id) => {
     set({ busyId: id, error: null })
     try {
@@ -289,6 +303,32 @@ export const useFrameStore = create<FrameState>((set, get) => ({
           selectedId: s.selectedId === id ? null : s.selectedId,
         }
       })
+    } catch (e) {
+      set({ error: ipcErrorMessage(e) })
+    }
+  },
+
+  clone: async (id) => {
+    try {
+      const res = await window.storyline.frames.clone(id)
+      if (!res.ok) {
+        set({ error: res.error })
+        return null
+      }
+      await get().load() // bring in the new frame + its copied inputs
+      return res.value
+    } catch (e) {
+      set({ error: ipcErrorMessage(e) })
+      return null
+    }
+  },
+
+  unlink: async (id) => {
+    try {
+      const res = await window.storyline.frames.unlink(id)
+      if (!res.ok) return set({ error: res.error })
+      const frame = res.value
+      set((s) => ({ frames: s.frames.map((sh) => (sh.id === id ? frame : sh)) }))
     } catch (e) {
       set({ error: ipcErrorMessage(e) })
     }

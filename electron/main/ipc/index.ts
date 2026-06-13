@@ -8,6 +8,7 @@ import { registerComfyHandlers } from './comfy'
 import { registerSettingsHandlers } from './settings'
 import { registerExportHandlers } from './export'
 import { registerClipboardHandlers } from './clipboard'
+import { registerShellHandlers } from './shell'
 
 export function registerIpcHandlers(): void {
   registerProjectHandlers()
@@ -19,4 +20,5 @@ export function registerIpcHandlers(): void {
   registerSettingsHandlers()
   registerExportHandlers()
   registerClipboardHandlers()
+  registerShellHandlers()
 }

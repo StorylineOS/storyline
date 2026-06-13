@@ -9,16 +9,21 @@ interface UiState {
   linkedWorkflow: string | null
   /** The frame whose workflow is open in Generate — capture targets this frame. */
   activeFrameId: string | null
+  /** The frame open in the right-side inspector drawer (null = closed). */
+  inspectorFrameId: string | null
   setMode: (mode: WorkspaceMode) => void
   setLinkedWorkflow: (name: string | null) => void
   setActiveFrame: (frameId: string | null) => void
+  setInspectorFrame: (frameId: string | null) => void
 }
 
 export const useUiStore = create<UiState>((set) => ({
   mode: 'moodboard',
   linkedWorkflow: null,
   activeFrameId: null,
+  inspectorFrameId: null,
   setMode: (mode) => set({ mode }),
   setLinkedWorkflow: (linkedWorkflow) => set({ linkedWorkflow }),
   setActiveFrame: (activeFrameId) => set({ activeFrameId }),
+  setInspectorFrame: (inspectorFrameId) => set({ inspectorFrameId }),
 }))

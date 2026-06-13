@@ -9,6 +9,8 @@ import {
   renameFrame,
   reorderFrames,
   deleteFrame,
+  cloneFrame,
+  unlinkWorkflow,
   setHero,
   listTakes,
   heroTakes,
@@ -42,6 +44,8 @@ export function registerFrameHandlers(): void {
     reorderFrames(orderedIds)
   })
   handle<[string], void>(IpcChannels.frames.delete, (id) => deleteFrame(str(id, 'frame id')))
+  handle<[string], Frame>(IpcChannels.frames.clone, (id) => cloneFrame(str(id, 'frame id')))
+  handle<[string], Frame>(IpcChannels.frames.unlink, (id) => unlinkWorkflow(str(id, 'frame id')))
   handle<[string, string | null], Frame>(IpcChannels.frames.setHero, (id, takeId) => {
     if (takeId !== null && typeof takeId !== 'string') throw new Error('Invalid take id.')
     return setHero(str(id, 'frame id'), takeId)

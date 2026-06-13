@@ -33,6 +33,7 @@ import { LayerNode } from './nodes/LayerNode'
 import { DeletableEdge } from './edges/DeletableEdge'
 import { SideMenu } from './SideMenu'
 import { CanvasToolbar } from './CanvasToolbar'
+import { FrameInspector } from './FrameInspector'
 
 const nodeTypes: NodeTypes = {
   image: ImageNode,
@@ -129,7 +130,6 @@ function Board(): React.JSX.Element {
   const { items, connectors, error, load, updateItem, deleteItem, connect, disconnect } =
     useMoodboardStore()
   const addTextAt = useMoodboardStore((s) => s.addTextAt)
-  const addFrameItem = useMoodboardStore((s) => s.addFrameItem)
   const addFrameFromAssetInLayer = useMoodboardStore((s) => s.addFrameFromAssetInLayer)
   const addPreview = useMoodboardStore((s) => s.addPreview)
   const addLayer = useMoodboardStore((s) => s.addLayer)
@@ -245,13 +245,8 @@ function Board(): React.JSX.Element {
   }
 
   return (
-    <div className="flex h-full">
-      <SideMenu
-        onAddFrame={(frameId) => {
-          const { x, y } = centre()
-          void addFrameItem(frameId, x, y)
-        }}
-      />
+    <div className="relative flex h-full">
+      <SideMenu />
 
       <div ref={wrapperRef} className="relative flex-1">
         {error && (
@@ -302,6 +297,8 @@ function Board(): React.JSX.Element {
           }}
         />
       </div>
+
+      <FrameInspector />
     </div>
   )
 }

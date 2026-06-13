@@ -62,6 +62,37 @@ function openWorkflowScript(name: string): string {
   })();`
 }
 
+/** Marker the in-page save hook logs; the host listens for it on `console-message`. */
+const WF_SAVED_MARKER = '[storyline:wf-saved]'
+
+/**
+ * Injected once into the ComfyUI page: monkeypatch the API's `storeUserData` so that
+ * after a workflow is saved it logs a marker we can catch from the host (which then
+ * pulls the saved JSON into Storyline's durable copy). Idempotent.
+ */
+function saveHookScript(): string {
+  return `(() => {
+    if (window.__storylineSaveHook) return 'already';
+    const findApi = () => {
+      if (window.app && window.app.api && typeof window.app.api.storeUserData === 'function') return window.app.api;
+      const reg = window.comfyAPI || {};
+      if (reg.api && reg.api.api && typeof reg.api.api.storeUserData === 'function') return reg.api.api;
+      for (const k in reg) { try { if (reg[k] && typeof reg[k].storeUserData === 'function') return reg[k]; } catch (e) {} }
+      return null;
+    };
+    const api = findApi();
+    if (!api) return 'no-api';
+    const orig = api.storeUserData.bind(api);
+    api.storeUserData = async (file, data, options) => {
+      const r = await orig(file, data, options);
+      try { if (typeof file === 'string' && file.indexOf('workflows/') !== -1) console.log('${WF_SAVED_MARKER} ' + file); } catch (e) {}
+      return r;
+    };
+    window.__storylineSaveHook = true;
+    return 'hooked';
+  })();`
+}
+
 /**
  * The Generate tab embeds ComfyUI in an iframe. It polls the backend; when it's not
  * reachable it shows guidance instead. The URL is editable (persisted to settings).
@@ -72,8 +103,10 @@ export function GeneratePanel(): React.JSX.Element {
   const linkedWorkflow = useUiStore((s) => s.linkedWorkflow)
   const setLinkedWorkflow = useUiStore((s) => s.setLinkedWorkflow)
   const activeFrameId = useUiStore((s) => s.activeFrameId)
+  const mode = useUiStore((s) => s.mode)
   const activeFrame = useFrameStore((s) => s.frames.find((sh) => sh.id === activeFrameId))
   const captureOutput = useFrameStore((s) => s.captureOutput)
+  const pullWorkflow = useFrameStore((s) => s.pullWorkflow)
   const [status, setStatus] = useState<ComfyStatus | null>(null)
   const [draftUrl, setDraftUrl] = useState('')
   const webviewRef = useRef<ComfyWebview | null>(null)
@@ -82,6 +115,8 @@ export function GeneratePanel(): React.JSX.Element {
   const [run, setRun] = useState<ComfyRun | null>(null)
   const [captured, setCaptured] = useState<Set<string>>(new Set())
   const seenPromptId = useRef<string | null>(null)
+  // The frame whose workflow is currently open — for safety-net pulls on switch/leave.
+  const prevFrameRef = useRef<string | null>(null)
 
   const running = status?.running ?? false
   const url = status?.url ?? comfyUrl
@@ -169,6 +204,40 @@ export function GeneratePanel(): React.JSX.Element {
       .catch(() => {})
       .finally(() => setLinkedWorkflow(null))
   }, [webviewReady, linkedWorkflow, setLinkedWorkflow])
+
+  // Install the save hook and listen for its marker: when the user saves a workflow
+  // inside ComfyUI, pull the JSON back into Storyline's durable copy. The marker's
+  // path identifies which frame's workflow was saved (fallback: the active frame).
+  useEffect(() => {
+    const wv = webviewRef.current
+    if (!webviewReady || !wv) return
+    wv.executeJavaScript(saveHookScript()).catch(() => {})
+    const onConsole = (e: Event): void => {
+      const msg = (e as unknown as { message?: string }).message ?? ''
+      if (!msg.startsWith(WF_SAVED_MARKER)) return
+      const savedPath = msg.slice(WF_SAVED_MARKER.length).trim()
+      const frames = useFrameStore.getState().frames
+      const match = frames.find(
+        (f) => f.comfyWorkflowName && savedPath.includes(f.comfyWorkflowName),
+      )
+      const id = match?.id ?? prevFrameRef.current
+      if (id) void pullWorkflow(id)
+    }
+    wv.addEventListener('console-message', onConsole)
+    return () => wv.removeEventListener('console-message', onConsole)
+  }, [webviewReady, pullWorkflow])
+
+  // Safety net (in case the hook misses): pull the previous frame's workflow when the
+  // open frame changes, and the active frame's when leaving the Generate tab.
+  useEffect(() => {
+    const prev = prevFrameRef.current
+    if (prev && prev !== activeFrameId) void pullWorkflow(prev)
+    prevFrameRef.current = activeFrameId
+  }, [activeFrameId, pullWorkflow])
+
+  useEffect(() => {
+    if (mode !== 'generate' && activeFrameId) void pullWorkflow(activeFrameId)
+  }, [mode, activeFrameId, pullWorkflow])
 
   return (
     <div className="flex h-full flex-col bg-panel">

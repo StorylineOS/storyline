@@ -44,6 +44,8 @@ const api: StorylineApi = {
     rename: (id: string, name: string) => ipcRenderer.invoke(IpcChannels.frames.rename, id, name),
     reorder: (orderedIds: string[]) => ipcRenderer.invoke(IpcChannels.frames.reorder, orderedIds),
     delete: (id: string) => ipcRenderer.invoke(IpcChannels.frames.delete, id),
+    clone: (id: string) => ipcRenderer.invoke(IpcChannels.frames.clone, id),
+    unlink: (id: string) => ipcRenderer.invoke(IpcChannels.frames.unlink, id),
     setHero: (id: string, takeId: string | null) =>
       ipcRenderer.invoke(IpcChannels.frames.setHero, id, takeId),
     listTakes: (frameId: string) => ipcRenderer.invoke(IpcChannels.frames.listTakes, frameId),
@@ -62,6 +64,8 @@ const api: StorylineApi = {
     status: () => ipcRenderer.invoke(IpcChannels.comfy.status),
     linkFrame: (frameId: string) => ipcRenderer.invoke(IpcChannels.comfy.linkFrame, frameId),
     uploadInputs: (frameId: string) => ipcRenderer.invoke(IpcChannels.comfy.uploadInputs, frameId),
+    pullWorkflow: (frameId: string) => ipcRenderer.invoke(IpcChannels.comfy.pullWorkflow, frameId),
+    pushWorkflow: (frameId: string) => ipcRenderer.invoke(IpcChannels.comfy.pushWorkflow, frameId),
     pullLatest: (frameId: string) => ipcRenderer.invoke(IpcChannels.comfy.pullLatest, frameId),
     latestRun: () => ipcRenderer.invoke(IpcChannels.comfy.latestRun),
     captureOutput: (frameId: string, output: ComfyOutput) =>
@@ -108,6 +112,9 @@ const api: StorylineApi = {
   },
   dialog: {
     pickDirectory: () => ipcRenderer.invoke(IpcChannels.dialog.pickDirectory),
+  },
+  shell: {
+    openExternal: (url: string) => ipcRenderer.invoke(IpcChannels.shell.openExternal, url),
   },
 }
 

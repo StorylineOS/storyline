@@ -5,7 +5,7 @@
  * back as a take. Uses Comfy's HTTP API: /system_stats, /upload/image, /history, /view.
  */
 import { join, extname } from 'node:path'
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
 import type { Take, ComfyStatus, AssetKind, Frame, ComfyOutput, ComfyRun } from '@shared/types'
 import { getSettings } from '../settings/store'
@@ -44,9 +44,13 @@ export async function ping(): Promise<ComfyStatus> {
 }
 
 function sanitizeSegment(name: string): string {
+  // Keep only characters that survive ComfyUI's userdata path + workflow-store lookup
+  // unchanged. Apostrophes, parentheses, slashes, etc. get encoded differently and
+  // break the "open the saved workflow" match → it opens an Unsaved copy and Save
+  // then conflicts (409). Allow letters, digits, space, dash, underscore.
   return (
     name
-      .replace(/[\\/]+/g, '-')
+      .replace(/[^A-Za-z0-9 _-]+/g, ' ')
       .replace(/\s+/g, ' ')
       .trim() || 'untitled'
   )
@@ -88,35 +92,114 @@ function buildSeedWorkflow(frameName: string, inputFileNames: string[]): unknown
   }
 }
 
-/**
- * Link a frame to a ComfyUI workflow: create a workflow named after the frame (seeded
- * with a Note) via Comfy's userdata API, and remember the name on the frame. If the
- * frame is already linked, just return it (don't clobber the user's edits).
- */
-export async function linkFrameWorkflow(frameId: string): Promise<Frame> {
-  const frame = getFrameById(frameId)
-  if (frame.comfyWorkflowName) return frame
+// ── Durable workflow storage ────────────────────────────────────────────────
+// Storyline owns the canonical copy of each frame's workflow at
+// <project>/workflows/<frameId>.json, so switching ComfyUI installs (e.g. an
+// ephemeral cloud box) never loses it. ComfyUI holds a working copy under
+// /userdata/workflows/<name>.json; we push our copy to it and pull edits back.
 
+function workflowNameFor(frame: Frame): string {
   const project = getCurrentProject()
   const projectSeg = sanitizeSegment(project?.name ?? 'Project')
   const frameSeg = sanitizeSegment(frame.name)
-  const name = `Storyline/${projectSeg}/${frameSeg} (${frame.id.slice(0, 6)})`
+  return `Storyline/${projectSeg}/${frameSeg} ${frame.id.slice(0, 6)}`
+}
 
-  const workflow = buildSeedWorkflow(frame.name, frameInputFileNames(frameId))
+function localWorkflowPath(frameId: string): string {
+  const folder = getOpenProjectFolder()
+  if (!folder) throw new Error('No project is open.')
+  return join(folder, 'workflows', `${frameId}.json`)
+}
 
-  const file = encodeURIComponent(`workflows/${name}.json`)
-  const res = await fetch(`${baseUrl()}/userdata/${file}?overwrite=false`, {
+function readLocalWorkflow(frameId: string): unknown | null {
+  const path = localWorkflowPath(frameId)
+  if (!existsSync(path)) return null
+  try {
+    return JSON.parse(readFileSync(path, 'utf-8'))
+  } catch {
+    return null
+  }
+}
+
+function writeLocalWorkflow(frameId: string, json: unknown): void {
+  const folder = getOpenProjectFolder()
+  if (!folder) throw new Error('No project is open.')
+  mkdirSync(join(folder, 'workflows'), { recursive: true })
+  writeFileSync(localWorkflowPath(frameId), JSON.stringify(json), 'utf-8')
+}
+
+function userdataUrl(name: string): string {
+  return `${baseUrl()}/userdata/${encodeURIComponent(`workflows/${name}.json`)}`
+}
+
+/** Fetch a workflow from ComfyUI's userdata (null if it doesn't exist there). */
+async function getRemoteWorkflow(name: string): Promise<unknown | null> {
+  const res = await fetch(userdataUrl(name))
+  if (res.status === 404) return null
+  if (!res.ok) throw new Error(`Could not read the workflow from ComfyUI (${res.status}).`)
+  return res.json()
+}
+
+/** Store a workflow into ComfyUI's userdata, overwriting any existing copy. */
+async function pushWorkflowToComfy(name: string, json: unknown): Promise<void> {
+  const res = await fetch(`${userdataUrl(name)}?overwrite=true`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(workflow),
+    body: JSON.stringify(json),
   })
-  // 409 = already exists (fine — reuse it). Other failures are real.
-  if (!res.ok && res.status !== 409) {
+  if (!res.ok) {
     throw new Error(
       `Could not save the workflow to ComfyUI (${res.status}). Make sure it's running and recent enough to support the userdata API.`,
     )
   }
-  return linkWorkflow(frameId, name)
+}
+
+/**
+ * Link/open a frame's ComfyUI workflow, with Storyline as the durable source of
+ * truth: if we have a local copy, push it to the connected ComfyUI (restores it
+ * after an install switch); else adopt ComfyUI's copy if present; else seed a new
+ * one. The frame's workflow name is persisted on first link.
+ */
+export async function linkFrameWorkflow(frameId: string): Promise<Frame> {
+  const frame = getFrameById(frameId)
+  const name = frame.comfyWorkflowName ?? workflowNameFor(frame)
+  const linked = frame.comfyWorkflowName ? frame : linkWorkflow(frameId, name)
+
+  const local = readLocalWorkflow(frameId)
+  if (local) {
+    await pushWorkflowToComfy(name, local)
+  } else {
+    const remote = await getRemoteWorkflow(name)
+    if (remote != null) {
+      writeLocalWorkflow(frameId, remote)
+    } else {
+      const seed = buildSeedWorkflow(frame.name, frameInputFileNames(frameId))
+      await pushWorkflowToComfy(name, seed)
+      writeLocalWorkflow(frameId, seed)
+    }
+  }
+  return linked
+}
+
+/** Pull the frame's workflow from ComfyUI into the project copy. Returns true if it changed. */
+export async function pullWorkflowToProject(frameId: string): Promise<boolean> {
+  const frame = getFrameById(frameId)
+  if (!frame.comfyWorkflowName) return false
+  const remote = await getRemoteWorkflow(frame.comfyWorkflowName)
+  if (remote == null) return false
+  const prev = readLocalWorkflow(frameId)
+  if (JSON.stringify(prev) === JSON.stringify(remote)) return false
+  writeLocalWorkflow(frameId, remote)
+  return true
+}
+
+/** Push the project's copy of the frame's workflow to ComfyUI. */
+export async function pushWorkflowFromProject(frameId: string): Promise<void> {
+  const frame = getFrameById(frameId)
+  if (!frame.comfyWorkflowName) return
+  const local = readLocalWorkflow(frameId)
+  if (local == null) return
+  await pushWorkflowToComfy(frame.comfyWorkflowName, local)
 }
 
 /**

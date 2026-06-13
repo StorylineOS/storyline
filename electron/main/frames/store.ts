@@ -5,7 +5,7 @@
  */
 import { randomUUID } from 'node:crypto'
 import { join } from 'node:path'
-import { existsSync, unlinkSync } from 'node:fs'
+import { existsSync, unlinkSync, mkdirSync, copyFileSync } from 'node:fs'
 import type { Frame, Take, FrameInput, FrameKind, AssetKind } from '@shared/types'
 import { getDb, getOpenProjectFolder } from '../db'
 import { importViaDialog } from '../assets/store'
@@ -189,9 +189,26 @@ export function deleteFrame(id: string): void {
   const tx = db.transaction(() => {
     db.prepare('DELETE FROM takes WHERE frame_id = ?').run(id)
     db.prepare('DELETE FROM frame_inputs WHERE frame_id = ?').run(id)
+    // Drop any canvas node(s) for this frame so they don't orphan, plus their edges.
+    const items = db
+      .prepare("SELECT id FROM moodboard_items WHERE frame_id = ? AND type = 'frame'")
+      .all(id) as Array<{ id: string }>
+    for (const item of items) {
+      db.prepare('DELETE FROM moodboard_connectors WHERE from_item_id = ? OR to_item_id = ?').run(
+        item.id,
+        item.id,
+      )
+    }
+    db.prepare("DELETE FROM moodboard_items WHERE frame_id = ? AND type = 'frame'").run(id)
     db.prepare('DELETE FROM frames WHERE id = ?').run(id)
   })
   tx()
+  // Remove the durable workflow copy (best-effort; outside the DB transaction).
+  const folder = getOpenProjectFolder()
+  if (folder) {
+    const wf = join(folder, 'workflows', `${id}.json`)
+    if (existsSync(wf)) unlinkSync(wf)
+  }
 }
 
 /** All frame inputs across the project (renderer groups by frameId). */
@@ -376,4 +393,72 @@ export function linkWorkflow(frameId: string, name: string): Frame {
     .prepare('UPDATE frames SET comfy_workflow_name = ?, updated_at = ? WHERE id = ?')
     .run(name, Date.now(), frameId)
   return getFrame(frameId)
+}
+
+/** Detach the frame's ComfyUI workflow link (keeps the local copy for re-linking). */
+export function unlinkWorkflow(frameId: string): Frame {
+  getFrame(frameId)
+  getDb()
+    .prepare('UPDATE frames SET comfy_workflow_name = NULL, updated_at = ? WHERE id = ?')
+    .run(Date.now(), frameId)
+  return getFrame(frameId)
+}
+
+/**
+ * Duplicate a frame: copies its inputs and (if present) its stored workflow JSON to a
+ * new frame. The clone starts unlinked (`comfy_workflow_name` null) so linking it
+ * creates its own ComfyUI workflow seeded from the copied JSON.
+ */
+export function cloneFrame(frameId: string): Frame {
+  const src = getFrame(frameId)
+  const db = getDb()
+  const seqId = defaultSequenceId()
+  const count = (
+    db.prepare('SELECT COUNT(*) AS n FROM frames WHERE sequence_id = ?').get(seqId) as { n: number }
+  ).n
+  const now = Date.now()
+  const clone: Frame = {
+    id: randomUUID(),
+    sequenceId: seqId,
+    name: `${src.name} copy`,
+    kind: src.kind,
+    position: count,
+    inputAssetId: src.inputAssetId,
+    heroTakeId: null,
+    workflowTemplateId: src.workflowTemplateId,
+    comfyWorkflowName: null,
+    createdAt: now,
+    updatedAt: now,
+  }
+  const tx = db.transaction(() => {
+    db.prepare(
+      `INSERT INTO frames
+         (id, sequence_id, name, kind, position, input_asset_id, hero_take_id, workflow_template_id, comfy_workflow_name, created_at, updated_at)
+       VALUES (@id, @sequenceId, @name, @kind, @position, @inputAssetId, @heroTakeId, @workflowTemplateId, @comfyWorkflowName, @createdAt, @updatedAt)`,
+    ).run(clone)
+    const inputs = db
+      .prepare('SELECT asset_id, source_frame_id, position FROM frame_inputs WHERE frame_id = ?')
+      .all(frameId) as Array<{
+      asset_id: string | null
+      source_frame_id: string | null
+      position: number
+    }>
+    const ins = db.prepare(
+      'INSERT INTO frame_inputs (id, frame_id, asset_id, source_frame_id, position) VALUES (?, ?, ?, ?, ?)',
+    )
+    for (const i of inputs) {
+      ins.run(randomUUID(), clone.id, i.asset_id, i.source_frame_id, i.position)
+    }
+  })
+  tx()
+  // Copy the durable workflow JSON, if any, so the clone can be linked independently.
+  const folder = getOpenProjectFolder()
+  if (folder) {
+    const srcWf = join(folder, 'workflows', `${frameId}.json`)
+    if (existsSync(srcWf)) {
+      mkdirSync(join(folder, 'workflows'), { recursive: true })
+      copyFileSync(srcWf, join(folder, 'workflows', `${clone.id}.json`))
+    }
+  }
+  return clone
 }

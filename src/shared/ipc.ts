@@ -57,6 +57,8 @@ export const IpcChannels = {
     rename: 'frames:rename',
     reorder: 'frames:reorder',
     delete: 'frames:delete',
+    clone: 'frames:clone',
+    unlink: 'frames:unlink',
     setHero: 'frames:setHero',
     listTakes: 'frames:listTakes',
     heroTakes: 'frames:heroTakes',
@@ -71,6 +73,8 @@ export const IpcChannels = {
     status: 'comfy:status',
     linkFrame: 'comfy:linkFrame',
     uploadInputs: 'comfy:uploadInputs',
+    pullWorkflow: 'comfy:pullWorkflow',
+    pushWorkflow: 'comfy:pushWorkflow',
     pullLatest: 'comfy:pullLatest',
     latestRun: 'comfy:latestRun',
     captureOutput: 'comfy:captureOutput',
@@ -98,6 +102,9 @@ export const IpcChannels = {
   },
   dialog: {
     pickDirectory: 'dialog:pickDirectory',
+  },
+  shell: {
+    openExternal: 'shell:openExternal',
   },
 } as const
 
@@ -173,6 +180,10 @@ export interface StorylineApi {
     /** Persist a new left-to-right ordering. */
     reorder(orderedIds: string[]): Promise<Result<void>>
     delete(id: string): Promise<Result<void>>
+    /** Duplicate a frame (its inputs + stored workflow); the clone starts unlinked. */
+    clone(id: string): Promise<Result<Frame>>
+    /** Detach the frame's ComfyUI workflow link. */
+    unlink(id: string): Promise<Result<Frame>>
     /** Choose which take is the frame's Output (null clears it). */
     setHero(id: string, takeId: string | null): Promise<Result<Frame>>
     /** The frame's generated takes, newest first. */
@@ -199,6 +210,10 @@ export interface StorylineApi {
     linkFrame(frameId: string): Promise<Result<Frame>>
     /** Upload the frame's input assets to ComfyUI (cloud-safe); returns stored names. */
     uploadInputs(frameId: string): Promise<Result<string[]>>
+    /** Pull the frame's workflow from ComfyUI into the project copy; true if changed. */
+    pullWorkflow(frameId: string): Promise<Result<boolean>>
+    /** Push the project's copy of the frame's workflow to ComfyUI. */
+    pushWorkflow(frameId: string): Promise<Result<void>>
     /** Pull ComfyUI's latest output and attach it to the frame as its Output take. */
     pullLatest(frameId: string): Promise<Result<Take>>
     /** The most recent ComfyUI run + all its output files (for the capture strip). */
@@ -244,6 +259,10 @@ export interface StorylineApi {
   dialog: {
     /** Native folder picker; returns the chosen absolute path or null if cancelled. */
     pickDirectory(): Promise<Result<string | null>>
+  }
+  shell: {
+    /** Open an http(s) URL in the user's default browser. */
+    openExternal(url: string): Promise<Result<void>>
   }
 }
 
