@@ -74,6 +74,8 @@ python main.py --enable-cors-header     # then paste http://127.0.0.1:8188 in-ap
 
 Storyline is early and moving fast, and issues, ideas, and pull requests are all welcome. If you're poking at the code, [CLAUDE.md](CLAUDE.md) is the engineering guide: it explains the architecture, the data model, and the conventions to follow.
 
+Want to help by using it for real? Try the [creator task](task.md): build a short 20-second story in Storyline and send us your feedback.
+
 ## License
 
 MIT.
