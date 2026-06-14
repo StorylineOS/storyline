@@ -58,34 +58,58 @@ function sanitizeSegment(name: string): string {
   )
 }
 
-/** A minimal, guaranteed-to-load LiteGraph workflow with a Note titled after the frame. */
+/**
+ * A minimal, guaranteed-to-load LiteGraph workflow with a Note titled after the frame.
+ * When the frame has an input, it also seeds a LoadImage node pre-set to that input
+ * (later re-pointed at the uploaded filename), so the displayed input loads on open.
+ */
 function buildSeedWorkflow(frameName: string, inputFileNames: string[]): unknown {
   const inputsLine = inputFileNames.length > 0 ? `\nInputs:\n  ${inputFileNames.join('\n  ')}` : ''
   const noteText =
     `Storyline frame: ${frameName}` +
     inputsLine +
     `\n\nBuild this frame's workflow here, then Save (the link persists).`
+  const nodes: unknown[] = [
+    {
+      id: 1,
+      type: 'Note',
+      pos: [80, 80],
+      size: [380, 120],
+      flags: {},
+      order: 0,
+      mode: 0,
+      inputs: [],
+      outputs: [],
+      title: frameName,
+      properties: {},
+      widgets_values: [noteText],
+      color: '#432',
+      bgcolor: '#653',
+    },
+  ]
+  if (inputFileNames.length > 0) {
+    nodes.push({
+      id: 2,
+      type: 'LoadImage',
+      pos: [80, 230],
+      size: [320, 314],
+      flags: {},
+      order: 1,
+      mode: 0,
+      inputs: [],
+      outputs: [
+        { name: 'IMAGE', type: 'IMAGE', links: null },
+        { name: 'MASK', type: 'MASK', links: null },
+      ],
+      title: 'Input',
+      properties: { 'Node name for S&R': 'LoadImage' },
+      widgets_values: [inputFileNames[0], 'image'],
+    })
+  }
   return {
-    last_node_id: 1,
+    last_node_id: inputFileNames.length > 0 ? 2 : 1,
     last_link_id: 0,
-    nodes: [
-      {
-        id: 1,
-        type: 'Note',
-        pos: [80, 80],
-        size: [380, 160],
-        flags: {},
-        order: 0,
-        mode: 0,
-        inputs: [],
-        outputs: [],
-        title: frameName,
-        properties: {},
-        widgets_values: [noteText],
-        color: '#432',
-        bgcolor: '#653',
-      },
-    ],
+    nodes,
     links: [],
     groups: [],
     config: {},
@@ -184,29 +208,71 @@ async function pushWorkflowToComfy(name: string, json: unknown): Promise<void> {
 }
 
 /**
+ * Set the image of each LoadImage node (in graph order) to the matching uploaded
+ * input filename, so the frame's displayed input is actually used by the workflow.
+ * Mutates `workflow` in place; returns true if anything changed. Tolerant of the two
+ * widgets_values shapes ComfyUI has shipped (array vs object).
+ */
+function injectInputsIntoWorkflow(workflow: unknown, names: string[]): boolean {
+  if (names.length === 0 || !workflow || typeof workflow !== 'object') return false
+  const nodes = (workflow as { nodes?: unknown }).nodes
+  if (!Array.isArray(nodes)) return false
+  let next = 0
+  let changed = false
+  for (const node of nodes) {
+    if (next >= names.length) break
+    if (!node || typeof node !== 'object' || (node as { type?: unknown }).type !== 'LoadImage')
+      continue
+    const wv = (node as { widgets_values?: unknown }).widgets_values
+    if (Array.isArray(wv)) {
+      if (wv[0] !== names[next]) {
+        wv[0] = names[next]
+        changed = true
+      }
+      next++
+    } else if (wv && typeof wv === 'object') {
+      ;(wv as Record<string, unknown>).image = names[next]
+      changed = true
+      next++
+    }
+  }
+  return changed
+}
+
+/**
  * Link/open a frame's ComfyUI workflow, with Storyline as the durable source of
  * truth: if we have a local copy, push it to the connected ComfyUI (restores it
  * after an install switch); else adopt ComfyUI's copy if present; else seed a new
  * one. The frame's workflow name is persisted on first link.
+ *
+ * The frame's inputs (library assets and Preview/flow links → the source frame's
+ * hero take) are uploaded to ComfyUI and wired into the workflow's LoadImage nodes,
+ * so the input shown on the frame is the one ComfyUI loads.
  */
 export async function linkFrameWorkflow(frameId: string): Promise<Frame> {
   const frame = getFrameById(frameId)
   const name = frame.comfyWorkflowName ?? workflowNameFor(frame)
   const linked = frame.comfyWorkflowName ? frame : linkWorkflow(frameId, name)
 
-  const local = readLocalWorkflow(frameId)
-  if (local) {
-    await pushWorkflowToComfy(name, local)
-  } else {
-    const remote = await getRemoteWorkflow(name)
-    if (remote != null) {
-      writeLocalWorkflow(frameId, remote)
-    } else {
-      const seed = buildSeedWorkflow(frame.name, frameInputFileNames(frameId))
-      await pushWorkflowToComfy(name, seed)
-      writeLocalWorkflow(frameId, seed)
-    }
+  // Resolve the workflow JSON: our durable copy, else ComfyUI's, else a fresh seed.
+  let workflow = readLocalWorkflow(frameId)
+  if (workflow == null) {
+    workflow =
+      (await getRemoteWorkflow(name)) ?? buildSeedWorkflow(frame.name, frameInputFileNames(frameId))
   }
+
+  // Upload inputs so they're available in ComfyUI, then point LoadImage nodes at them.
+  // Best-effort: if upload fails (comfy momentarily down), still push the workflow.
+  let uploaded: string[] = []
+  try {
+    uploaded = await uploadFrameInputs(frameId)
+  } catch {
+    // ignore — the push below surfaces a real connectivity problem
+  }
+  injectInputsIntoWorkflow(workflow, uploaded)
+
+  await pushWorkflowToComfy(name, workflow)
+  writeLocalWorkflow(frameId, workflow)
   return linked
 }
 
