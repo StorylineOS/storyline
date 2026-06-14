@@ -1,8 +1,7 @@
-# Creator task: build a 20-second story in Storyline
+# Creator task: build a 20-second story using Storyline
 
-Use Storyline to plan, generate, and curate the shots of a short story, then tell us how it felt to work this way.
-
-This is a real production exercise. We want to see Storyline used end to end on an actual story, and learn whether it genuinely helps you plan and design a production pipeline, and what we should build next.
+Use Storyline to plan, generate, and curate the shots of a short story, then share us your experience about storyline.
+This is a real production exercise. We want to see Storyline used end to end on an actual story, and learn whether it genuinely helps you plan, design and execute a production pipeline, and what we should build next.
 
 ## The brief
 
