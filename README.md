@@ -2,7 +2,7 @@
 
 **A narrative-first desktop app for filmmakers, video artists, and visual creators, powered by your own [ComfyUI](https://github.com/comfyanonymous/ComfyUI).**
 
-ComfyUI is the most capable generative engine there is: image, video, audio, LLM, every new model lands there first. But it asks you to think in node graphs and execution order. Filmmakers think in frames, scenes, and sequences. Storyline sits in between: you compose your film on a free-form canvas and work frame by frame, while ComfyUI quietly does the generation behind each one.
+ComfyUI is the most capable generative engine currently: image, video, audio, LLM, every new model lands there first. But it asks you to think in node graphs and execution order. Filmmakers think in frames, scenes, and sequences. Storyline sits in between: you compose your film on a free-form canvas and work frame by frame, while ComfyUI quietly does the generation behind each one.
 
 ![Storyline canvas](screenshots/image.png)
 
@@ -14,7 +14,7 @@ ComfyUI is the most capable generative engine there is: image, video, audio, LLM
 
 A **frame is not a file. It's a slot with a history of takes.**
 
-Filmmakers reshoot. So in Storyline, every render you make becomes an immutable _take_ that lives under its frame. Nothing gets overwritten; you generate again and again, then pick the one that works (the "hero"), and that's the one that flows on to the next shot. That versioned-take history is the thing ComfyUI doesn't give you, and it's what the whole app is built around.
+Filmmakers re-shoot. So in Storyline, every render you make becomes an immutable _take_ that lives under its frame. Nothing gets overwritten; you generate again and again, then pick the one that works (the "hero"), and that's the one that flows on to the next shot. That versioned-take history is the thing ComfyUI doesn't give you, and it's what the whole app is built around.
 
 ```
 Project  →  Sequence  →  Frame  →  Take[]
