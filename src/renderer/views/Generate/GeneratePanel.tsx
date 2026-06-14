@@ -30,6 +30,13 @@ function openWorkflowScript(name: string): string {
     };
     await waitFor(() => window.app && window.app.graph);
     const path = 'workflows/' + ${n} + '.json';
+    // A saved workflow matches by its path/key, tolerating versions that only expose
+    // a filename or that prefix the path differently.
+    const matches = (w) => {
+      if (!w) return false;
+      const p = w.path || w.key || w.filename || '';
+      return p === path || (typeof p === 'string' && p.endsWith(${n} + '.json'));
+    };
 
     // 1) Open the SAVED workflow via the workflow store (so Save targets the same file).
     try {
@@ -42,17 +49,37 @@ function openWorkflowScript(name: string): string {
       }
       if (useWorkflowStore) {
         const store = useWorkflowStore();
+        // 1a) Already open in a tab? Just switch to it — don't open a duplicate.
+        const openList = store.openWorkflows || store.openedWorkflows || [];
+        if (Array.isArray(openList)) {
+          const already = openList.find(matches);
+          if (already) {
+            if (typeof store.openWorkflow === 'function') await store.openWorkflow(already);
+            else store.activeWorkflow = already;
+            return 'switched';
+          }
+        }
+        // 1b) Otherwise open the saved workflow.
         let wf = null;
         if (typeof store.getWorkflowByPath === 'function') wf = store.getWorkflowByPath(path);
-        if (!wf && Array.isArray(store.workflows)) {
-          wf = store.workflows.find((w) =>
-            w && (w.path === path || w.key === path || (w.path && w.path.endsWith(${n} + '.json'))));
-        }
+        if (!wf && Array.isArray(store.workflows)) wf = store.workflows.find(matches);
         if (wf && typeof store.openWorkflow === 'function') { await store.openWorkflow(wf); return 'opened'; }
       }
     } catch (e) { console.error('[storyline] store open failed', e); }
 
-    // 2) Fallback: load the graph (opens as an Unsaved Workflow).
+    // 2) Fallback: switch to a matching open tab via the workflow manager if there is
+    // one; else load the graph (opens as an Unsaved Workflow).
+    try {
+      const mgr = window.app && window.app.workflowManager;
+      const openList = mgr && (mgr.openWorkflows || mgr.workflows);
+      if (Array.isArray(openList)) {
+        const already = openList.find(matches);
+        if (already) {
+          if (typeof mgr.setWorkflow === 'function') { mgr.setWorkflow(already); return 'switched'; }
+          if (already.load) { already.load(); return 'switched'; }
+        }
+      }
+    } catch (e) { console.error('[storyline] tab switch failed', e); }
     try {
       if (window.app && typeof window.app.loadGraphData === 'function') {
         const res = await fetch('/userdata/' + encodeURIComponent(path));
@@ -68,8 +95,10 @@ const WF_SAVED_MARKER = '[storyline:wf-saved]'
 
 /**
  * Injected once into the ComfyUI page: monkeypatch the API's `storeUserData` so that
- * after a workflow is saved it logs a marker we can catch from the host (which then
- * pulls the saved JSON into Storyline's durable copy). Idempotent.
+ * (1) saving a Storyline workflow always passes `overwrite: true` — ComfyUI otherwise
+ * POSTs new workflows with overwrite=false and the server 409s because Storyline has
+ * already pushed that file; and (2) after a save it logs a marker the host catches to
+ * pull the JSON back into Storyline's durable copy. Idempotent.
  */
 function saveHookScript(): string {
   return `(() => {
@@ -85,8 +114,15 @@ function saveHookScript(): string {
     if (!api) return 'no-api';
     const orig = api.storeUserData.bind(api);
     api.storeUserData = async (file, data, options) => {
-      const r = await orig(file, data, options);
-      try { if (typeof file === 'string' && file.indexOf('workflows/') !== -1) console.log('${WF_SAVED_MARKER} ' + file); } catch (e) {}
+      let opts = options;
+      const isWorkflow = typeof file === 'string' && file.indexOf('workflows/') !== -1;
+      // Force overwrite for our workflow files so re-saving never 409s. Only touch a
+      // real options object so ComfyUI's defaults (stringify/throwOnError) survive.
+      if (isWorkflow && options && typeof options === 'object') {
+        opts = Object.assign({}, options, { overwrite: true });
+      }
+      const r = await orig(file, data, opts);
+      try { if (isWorkflow) console.log('${WF_SAVED_MARKER} ' + file); } catch (e) {}
       return r;
     };
     window.__storylineSaveHook = true;

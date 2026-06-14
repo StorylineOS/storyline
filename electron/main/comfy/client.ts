@@ -23,6 +23,8 @@ function baseUrl(): string {
   return getSettings().comfyUrl.replace(/\/+$/, '')
 }
 
+const delay = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
+
 const VIDEO_EXTS = new Set(['.mp4', '.webm', '.mov', '.mkv', '.gif', '.avi', '.m4v'])
 
 function kindForExt(ext: string): AssetKind {
@@ -140,18 +142,45 @@ async function getRemoteWorkflow(name: string): Promise<unknown | null> {
   return res.json()
 }
 
-/** Store a workflow into ComfyUI's userdata, overwriting any existing copy. */
+/**
+ * Store a workflow into ComfyUI's userdata, overwriting any existing copy. Retries
+ * transient failures (network drop, 5xx, or an unexpected 409) with a short backoff
+ * and a per-attempt timeout — the connected ComfyUI may be a remote/cloud box that
+ * briefly hiccups. Clear client errors (e.g. 400/404) fail fast.
+ */
 async function pushWorkflowToComfy(name: string, json: unknown): Promise<void> {
-  const res = await fetch(`${userdataUrl(name)}?overwrite=true`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(json),
-  })
-  if (!res.ok) {
-    throw new Error(
-      `Could not save the workflow to ComfyUI (${res.status}). Make sure it's running and recent enough to support the userdata API.`,
-    )
+  const url = `${userdataUrl(name)}?overwrite=true`
+  const body = JSON.stringify(json)
+  const ATTEMPTS = 3
+  let lastError = 'no response'
+
+  for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
+    let status: number | null = null
+    try {
+      const ctrl = new AbortController()
+      const timer = setTimeout(() => ctrl.abort(), 10_000)
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+        signal: ctrl.signal,
+      })
+      clearTimeout(timer)
+      if (res.ok) return
+      status = res.status
+      lastError = `ComfyUI returned ${res.status}`
+    } catch (e) {
+      lastError = e instanceof Error ? e.message : String(e)
+    }
+    // A clear client error (bad request, not found, …) won't fix itself — stop. The
+    // exception is 409: with overwrite=true it signals a stale lock, so retry it.
+    if (status !== null && status < 500 && status !== 409) break
+    if (attempt < ATTEMPTS) await delay(300 * attempt)
   }
+
+  throw new Error(
+    `Could not save the workflow to ComfyUI (${lastError}). Make sure it's running and recent enough to support the userdata API.`,
+  )
 }
 
 /**

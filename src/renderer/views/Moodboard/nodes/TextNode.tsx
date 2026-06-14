@@ -1,52 +1,43 @@
-import { useRef, useState } from 'react'
+import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import { NodeFrame } from './NodeFrame'
-import type { ResizeSize } from './NodeFrame'
 import { TextToolbar } from './TextToolbar'
 import { useMoodboardStore } from '../../../store/moodboardStore'
 import type { TextNodeData } from './nodeData'
 import type { TextItemData } from '@shared/types'
 
-const MIN_FONT = 8
-const MAX_FONT = 96
-const clampFont = (n: number): number => Math.min(MAX_FONT, Math.max(MIN_FONT, Math.round(n)))
-
 /**
  * Editable text item — floats bare on the canvas (no surface box), light-grey by
  * default. Double-click to edit; blur persists. Selecting it reveals a formatting
  * toolbar (colour / size / style / align / link). A linked, non-editing node opens
- * its URL in the browser on click.
+ * its URL in the browser on click. Resizing only changes the box — font size is set
+ * from the toolbar, not from the container dimensions.
  */
 export function TextNode({ id, data, selected }: NodeProps): React.JSX.Element {
   const { text } = data as TextNodeData
   const updateItem = useMoodboardStore((s) => s.updateItem)
+  const item = useMoodboardStore((s) => s.items.find((it) => it.id === id))
   const [editing, setEditing] = useState(false)
-  // Live font size shown while dragging the resize handle; null = use persisted size.
-  const [liveFont, setLiveFont] = useState<number | null>(null)
   const ref = useRef<HTMLDivElement>(null)
-  // Captured at resize start so font scales proportionally to the height change.
-  const resizeStart = useRef<{ height: number; fontSize: number } | null>(null)
+  // Latest item in a ref so fitHeight can stay stable yet read current dimensions.
+  const itemRef = useRef(item)
+  itemRef.current = item
 
-  const fontAtHeight = (height: number): number => {
-    const s = resizeStart.current
-    if (!s || s.height <= 0) return text.fontSize
-    return clampFont(s.fontSize * (height / s.height))
-  }
-
-  const onResizeStart = (size: ResizeSize): void => {
-    resizeStart.current = { height: size.height, fontSize: text.fontSize }
-  }
-  const onResize = (size: ResizeSize): void => setLiveFont(fontAtHeight(size.height))
-  const onResizeEnd = (size: ResizeSize): void => {
-    const fontSize = fontAtHeight(size.height)
-    resizeStart.current = null
-    setLiveFont(null)
-    void updateItem(id, { ...size, data: { text: { ...text, fontSize } } })
-  }
+  // Grow the node's height so all the text is visible (e.g. after pasting a long
+  // block). Only grows — `h-full` makes scrollHeight ≈ clientHeight once it fits,
+  // so this converges in one pass.
+  const fitHeight = useCallback((): void => {
+    const el = ref.current
+    const it = itemRef.current
+    if (!el || !it) return
+    const chrome = it.height - el.clientHeight // padding + border, measured live
+    const needed = el.scrollHeight + chrome
+    if (needed > 0 && needed - it.height > 1) void updateItem(id, { height: needed })
+  }, [id, updateItem])
 
   const style: CSSProperties = {
-    fontSize: liveFont ?? text.fontSize,
+    fontSize: text.fontSize,
     color: text.color,
     textAlign: text.align,
     fontWeight: text.bold ? 700 : 400,
@@ -68,19 +59,16 @@ export function TextNode({ id, data, selected }: NodeProps): React.JSX.Element {
     if (text.link && !editing) void window.storyline.shell.openExternal(text.link)
   }
 
+  // Refit when the text, font size/weight/style, or node width (wrapping) changes.
+  useLayoutEffect(() => {
+    fitHeight()
+  }, [fitHeight, text.text, text.fontSize, text.bold, text.italic, item?.width, editing])
+
   return (
     <>
       {/* Sibling of the frame (not a child) so it escapes the node's overflow-hidden box. */}
       {selected && !editing && <TextToolbar text={text} onChange={applyPatch} />}
-      <NodeFrame
-        id={id}
-        selected={!!selected}
-        minHeight={32}
-        transparent
-        onResizeStart={onResizeStart}
-        onResize={onResize}
-        onResizeEnd={onResizeEnd}
-      >
+      <NodeFrame id={id} selected={!!selected} minHeight={32} transparent>
         <div
           ref={ref}
           style={style}
@@ -91,6 +79,7 @@ export function TextNode({ id, data, selected }: NodeProps): React.JSX.Element {
           suppressContentEditableWarning
           onDoubleClick={() => setEditing(true)}
           onClick={openLink}
+          onInput={fitHeight}
           onBlur={commit}
         >
           {text.text}
