@@ -101,6 +101,7 @@ export const IpcChannels = {
     importAndPlace: 'moodboard:importAndPlace',
     createConnector: 'moodboard:createConnector',
     deleteConnector: 'moodboard:deleteConnector',
+    replaceBoard: 'moodboard:replaceBoard',
   },
   dialog: {
     pickDirectory: 'dialog:pickDirectory',
@@ -261,6 +262,8 @@ export interface StorylineApi {
       targetHandle?: string | null,
     ): Promise<Result<MoodboardConnector>>
     deleteConnector(id: string): Promise<Result<void>>
+    /** Replace the entire board (used by canvas undo/redo). */
+    replaceBoard(items: MoodboardItem[], connectors: MoodboardConnector[]): Promise<Result<void>>
   }
   dialog: {
     /** Native folder picker; returns the chosen absolute path or null if cancelled. */

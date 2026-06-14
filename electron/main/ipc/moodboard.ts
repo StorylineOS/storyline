@@ -16,6 +16,7 @@ import {
   importAndPlace,
   createConnector,
   deleteConnector,
+  replaceBoard,
 } from '../moodboard/store'
 
 function num(v: unknown, label: string): number {
@@ -88,5 +89,14 @@ export function registerMoodboardHandlers(): void {
 
   handle<[string], void>(IpcChannels.moodboard.deleteConnector, (id) =>
     deleteConnector(str(id, 'connector id')),
+  )
+
+  handle<[MoodboardItem[], MoodboardConnector[]], void>(
+    IpcChannels.moodboard.replaceBoard,
+    (items, connectors) => {
+      if (!Array.isArray(items) || !Array.isArray(connectors))
+        throw new Error('Invalid board snapshot.')
+      replaceBoard(items, connectors)
+    },
   )
 }

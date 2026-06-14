@@ -136,6 +136,8 @@ function Board(): React.JSX.Element {
   const addLayer = useMoodboardStore((s) => s.addLayer)
   const addEmptyFrame = useMoodboardStore((s) => s.addEmptyFrame)
   const duplicateItems = useMoodboardStore((s) => s.duplicateItems)
+  const undo = useMoodboardStore((s) => s.undo)
+  const redo = useMoodboardStore((s) => s.redo)
   const addSourceInput = useFrameStore((s) => s.addSourceInput)
   const assets = useAssetStore((s) => s.assets)
   const loadAssets = useAssetStore((s) => s.load)
@@ -189,8 +191,9 @@ function Board(): React.JSX.Element {
     setNodes((nds) => applyNodeChanges(changes, nds))
   }
 
-  // Figma/Miro-style copy (⌘/Ctrl-C) and paste (⌘/Ctrl-V). Delete is handled by
-  // React Flow's deleteKeyCode + onNodesDelete. Ignored while editing text/inputs.
+  // Keyboard: copy (⌘/Ctrl-C), paste (⌘/Ctrl-V), undo (⌘/Ctrl-Z), redo (⌘/Ctrl-Shift-Z
+  // or ⌘/Ctrl-Y). Delete is handled by React Flow's deleteKeyCode + onNodesDelete.
+  // Ignored while editing text/inputs.
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       if (!(e.metaKey || e.ctrlKey)) return
@@ -198,7 +201,14 @@ function Board(): React.JSX.Element {
       if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return
       const key = e.key.toLowerCase()
 
-      if (key === 'c') {
+      if (key === 'z') {
+        e.preventDefault()
+        if (e.shiftKey) void redo()
+        else void undo()
+      } else if (key === 'y') {
+        e.preventDefault()
+        void redo()
+      } else if (key === 'c') {
         const selectedIds = new Set(
           getNodes()
             .filter((n) => n.selected)
@@ -220,7 +230,7 @@ function Board(): React.JSX.Element {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [getNodes, duplicateItems])
+  }, [getNodes, duplicateItems, undo, redo])
 
   const centre = (): { x: number; y: number } => {
     const rect = wrapperRef.current?.getBoundingClientRect()

@@ -10,13 +10,26 @@ import type { MoodboardItemPatch } from '@shared/ipc'
 import { ipcErrorMessage } from '../lib/ipcError'
 import { useFrameStore } from './frameStore'
 
+/** A board snapshot for the undo/redo stacks. */
+interface BoardSnapshot {
+  items: MoodboardItem[]
+  connectors: MoodboardConnector[]
+}
+
 interface MoodboardState {
   items: MoodboardItem[]
   connectors: MoodboardConnector[]
   loading: boolean
   error: string | null
+  /** Undo/redo history of board snapshots (most recent last). */
+  past: BoardSnapshot[]
+  future: BoardSnapshot[]
 
   load: () => Promise<void>
+  /** Snapshot the current board onto the undo stack (clears redo). Call before a change. */
+  record: () => void
+  undo: () => Promise<void>
+  redo: () => Promise<void>
   addAssetAt: (assetId: string, x: number, y: number) => Promise<void>
   addTextAt: (x: number, y: number) => Promise<void>
   addFrameFromAsset: (assetId: string, x: number, y: number) => Promise<void>
@@ -49,7 +62,8 @@ interface MoodboardState {
     sources: MoodboardItem[],
     offset: { x: number; y: number },
   ) => Promise<MoodboardItem[]>
-  updateItem: (id: string, patch: MoodboardItemPatch) => Promise<void>
+  /** `recordHistory: false` skips the undo snapshot — used by programmatic layout fits. */
+  updateItem: (id: string, patch: MoodboardItemPatch, recordHistory?: boolean) => Promise<void>
   deleteItem: (id: string) => Promise<void>
   connect: (
     fromItemId: string,
@@ -124,25 +138,79 @@ async function copyOne(
   return patched.ok ? patched.value : res.value
 }
 
-export const useMoodboardStore = create<MoodboardState>((set) => ({
+const HISTORY_LIMIT = 50
+
+export const useMoodboardStore = create<MoodboardState>((set, get) => ({
   items: [],
   connectors: [],
   loading: false,
   error: null,
+  past: [],
+  future: [],
 
   load: async () => {
     set({ loading: true, error: null })
     try {
       const res = await window.storyline.moodboard.list()
       if (!res.ok) return set({ loading: false, error: res.error })
-      set({ items: res.value.items, connectors: res.value.connectors, loading: false })
+      // A fresh load is a new baseline — clear undo history.
+      set({
+        items: res.value.items,
+        connectors: res.value.connectors,
+        loading: false,
+        past: [],
+        future: [],
+      })
     } catch (e) {
       set({ loading: false, error: ipcErrorMessage(e) })
     }
   },
 
+  record: () =>
+    set((s) => ({
+      past: [...s.past, { items: s.items, connectors: s.connectors }].slice(-HISTORY_LIMIT),
+      future: [],
+    })),
+
+  undo: async () => {
+    const s = get()
+    const prev = s.past[s.past.length - 1]
+    if (!prev) return
+    set({
+      past: s.past.slice(0, -1),
+      future: [...s.future, { items: s.items, connectors: s.connectors }],
+      items: prev.items,
+      connectors: prev.connectors,
+    })
+    try {
+      const res = await window.storyline.moodboard.replaceBoard(prev.items, prev.connectors)
+      if (!res.ok) set({ error: res.error })
+    } catch (e) {
+      set({ error: ipcErrorMessage(e) })
+    }
+  },
+
+  redo: async () => {
+    const s = get()
+    const next = s.future[s.future.length - 1]
+    if (!next) return
+    set({
+      future: s.future.slice(0, -1),
+      past: [...s.past, { items: s.items, connectors: s.connectors }],
+      items: next.items,
+      connectors: next.connectors,
+    })
+    try {
+      const res = await window.storyline.moodboard.replaceBoard(next.items, next.connectors)
+      if (!res.ok) set({ error: res.error })
+    } catch (e) {
+      set({ error: ipcErrorMessage(e) })
+    }
+  },
+
   addAssetAt: async (assetId, x, y) => {
     try {
+      get().record()
       const res = await window.storyline.moodboard.addAsset(assetId, x, y)
       if (!res.ok) return set({ error: res.error })
       set((s) => ({ items: [...s.items, res.value] }))
@@ -153,6 +221,7 @@ export const useMoodboardStore = create<MoodboardState>((set) => ({
 
   addTextAt: async (x, y) => {
     try {
+      get().record()
       const res = await window.storyline.moodboard.addText(x, y)
       if (!res.ok) return set({ error: res.error })
       set((s) => ({ items: [...s.items, res.value] }))
@@ -163,6 +232,7 @@ export const useMoodboardStore = create<MoodboardState>((set) => ({
 
   addFrameFromAsset: async (assetId, x, y) => {
     try {
+      get().record()
       const res = await window.storyline.moodboard.addFrameFromAsset(assetId, x, y)
       if (!res.ok) return set({ error: res.error })
       set((s) => ({ items: [...s.items, res.value] }))
@@ -173,6 +243,7 @@ export const useMoodboardStore = create<MoodboardState>((set) => ({
 
   addFrameItem: async (frameId, x, y) => {
     try {
+      get().record()
       const res = await window.storyline.moodboard.addFrameItem(frameId, x, y)
       if (!res.ok) return set({ error: res.error })
       set((s) => ({ items: [...s.items, res.value] }))
@@ -183,6 +254,7 @@ export const useMoodboardStore = create<MoodboardState>((set) => ({
 
   addEmptyFrame: async (x, y) => {
     try {
+      get().record()
       const res = await window.storyline.moodboard.addEmptyFrame(x, y)
       if (!res.ok) return set({ error: res.error })
       set((s) => ({ items: [...s.items, res.value] }))
@@ -195,6 +267,7 @@ export const useMoodboardStore = create<MoodboardState>((set) => ({
 
   addFrameItemInLayer: async (frameId, x, y, parentId) => {
     try {
+      get().record()
       const res = await window.storyline.moodboard.addFrameItem(frameId, x, y)
       if (!res.ok) return set({ error: res.error })
       let item = res.value
@@ -210,6 +283,7 @@ export const useMoodboardStore = create<MoodboardState>((set) => ({
 
   addPreview: async (x, y) => {
     try {
+      get().record()
       const res = await window.storyline.moodboard.addPreview(x, y)
       if (!res.ok) return set({ error: res.error })
       set((s) => ({ items: [...s.items, res.value] }))
@@ -220,6 +294,7 @@ export const useMoodboardStore = create<MoodboardState>((set) => ({
 
   addLayer: async (x, y) => {
     try {
+      get().record()
       const res = await window.storyline.moodboard.addLayer(x, y)
       if (!res.ok) return set({ error: res.error })
       set((s) => ({ items: [...s.items, res.value] }))
@@ -230,6 +305,7 @@ export const useMoodboardStore = create<MoodboardState>((set) => ({
 
   addFrameFromAssetInLayer: async (assetId, x, y, parentId) => {
     try {
+      get().record()
       const res = await window.storyline.moodboard.addFrameFromAsset(assetId, x, y)
       if (!res.ok) return set({ error: res.error })
       let item = res.value
@@ -248,6 +324,7 @@ export const useMoodboardStore = create<MoodboardState>((set) => ({
 
   connect: async (fromItemId, toItemId, sourceHandle = null, targetHandle = null) => {
     try {
+      get().record()
       const res = await window.storyline.moodboard.createConnector(
         fromItemId,
         toItemId,
@@ -263,6 +340,7 @@ export const useMoodboardStore = create<MoodboardState>((set) => ({
 
   disconnect: async (connectorId) => {
     try {
+      get().record()
       const res = await window.storyline.moodboard.deleteConnector(connectorId)
       if (!res.ok) return set({ error: res.error })
       set((s) => ({ connectors: s.connectors.filter((c) => c.id !== connectorId) }))
@@ -273,6 +351,7 @@ export const useMoodboardStore = create<MoodboardState>((set) => ({
 
   importAndPlace: async (x, y) => {
     try {
+      get().record()
       const res = await window.storyline.moodboard.importAndPlace(x, y)
       if (!res.ok) {
         set({ error: res.error })
@@ -288,6 +367,7 @@ export const useMoodboardStore = create<MoodboardState>((set) => ({
 
   duplicateItems: async (sources, offset) => {
     try {
+      get().record()
       const created: MoodboardItem[] = []
       // Copy layers first so children can be re-parented to the new layer ids.
       const layerMap = new Map<string, string>()
@@ -333,7 +413,8 @@ export const useMoodboardStore = create<MoodboardState>((set) => ({
     }
   },
 
-  updateItem: async (id, patch) => {
+  updateItem: async (id, patch, recordHistory = true) => {
+    if (recordHistory) get().record()
     // Optimistic: keep the canvas snappy, then persist.
     set((s) => ({ items: s.items.map((it) => (it.id === id ? applyPatch(it, patch) : it)) }))
     try {
@@ -346,6 +427,7 @@ export const useMoodboardStore = create<MoodboardState>((set) => ({
 
   deleteItem: async (id) => {
     try {
+      get().record()
       const res = await window.storyline.moodboard.deleteItem(id)
       if (!res.ok) return set({ error: res.error })
       set((s) => ({
@@ -357,5 +439,5 @@ export const useMoodboardStore = create<MoodboardState>((set) => ({
     }
   },
 
-  reset: () => set({ items: [], connectors: [], error: null }),
+  reset: () => set({ items: [], connectors: [], error: null, past: [], future: [] }),
 }))

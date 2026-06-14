@@ -76,11 +76,11 @@ export function FrameNode({ id, data, selected }: NodeProps): React.JSX.Element 
       }
       if (i.sourceFrameId) {
         const sf = allFrames.find((f) => f.id === i.sourceFrameId)
-        const hero = sf
-          ? (takesByFrame[sf.id] ?? []).find((t) => t.id === sf.heroTakeId)
-          : undefined
-        return hero
-          ? { id: i.id, assetId: null, url: mediaUrl(hero.filePath), kind: hero.kind }
+        const takes = sf ? (takesByFrame[sf.id] ?? []) : []
+        // Mirror the Preview: the hero take, or the newest when no hero is set.
+        const take = takes.find((t) => t.id === sf?.heroTakeId) ?? takes[0]
+        return take
+          ? { id: i.id, assetId: null, url: mediaUrl(take.filePath), kind: take.kind }
           : null
       }
       return null
@@ -108,7 +108,8 @@ export function FrameNode({ id, data, selected }: NodeProps): React.JSX.Element 
     const targetBody = Math.max(MIN_BODY, Math.min(MAX_BODY, width / aspect))
     const delta = targetBody - body.clientHeight
     if (Math.abs(delta) < 1) return
-    void updateItem(id, { height: Math.round(itemHeight + delta) })
+    // Programmatic layout fit — don't pollute the undo history.
+    void updateItem(id, { height: Math.round(itemHeight + delta) }, false)
   }, [aspect, itemWidth, itemHeight, id, updateItem])
 
   // Drop the aspect lock when the visible input isn't an image/video (audio or none).

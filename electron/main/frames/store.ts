@@ -219,15 +219,26 @@ export function addSourceInput(frameId: string, sourceFrameId: string): FrameInp
   return input
 }
 
-/** The file path + basename of a frame's hero take, or null if it has none. */
+/**
+ * The file path + basename of a frame's output take to feed downstream — the hero
+ * take, or (when no hero is set) the newest take, mirroring what the Preview shows.
+ * Null if the frame has no takes yet.
+ */
 function heroTakeFile(frameId: string): { filePath: string; name: string } | null {
-  const fr = getDb().prepare('SELECT hero_take_id FROM frames WHERE id = ?').get(frameId) as
+  const db = getDb()
+  const fr = db.prepare('SELECT hero_take_id FROM frames WHERE id = ?').get(frameId) as
     | { hero_take_id: string | null }
     | undefined
-  if (!fr?.hero_take_id) return null
-  const tk = getDb().prepare('SELECT file_path FROM takes WHERE id = ?').get(fr.hero_take_id) as
-    | { file_path: string }
-    | undefined
+  let tk = fr?.hero_take_id
+    ? (db.prepare('SELECT file_path FROM takes WHERE id = ?').get(fr.hero_take_id) as
+        | { file_path: string }
+        | undefined)
+    : undefined
+  if (!tk) {
+    tk = db
+      .prepare('SELECT file_path FROM takes WHERE frame_id = ? ORDER BY created_at DESC LIMIT 1')
+      .get(frameId) as { file_path: string } | undefined
+  }
   if (!tk) return null
   return { filePath: tk.file_path, name: tk.file_path.split('/').pop() ?? tk.file_path }
 }

@@ -11,7 +11,7 @@ import {
   type CreateFolderInput,
   type MoodboardItemPatch,
 } from '@shared/ipc'
-import type { ComfyOutput } from '@shared/types'
+import type { ComfyOutput, MoodboardItem, MoodboardConnector } from '@shared/types'
 
 const api: StorylineApi = {
   project: {
@@ -113,6 +113,8 @@ const api: StorylineApi = {
         targetHandle,
       ),
     deleteConnector: (id: string) => ipcRenderer.invoke(IpcChannels.moodboard.deleteConnector, id),
+    replaceBoard: (items: MoodboardItem[], connectors: MoodboardConnector[]) =>
+      ipcRenderer.invoke(IpcChannels.moodboard.replaceBoard, items, connectors),
   },
   dialog: {
     pickDirectory: () => ipcRenderer.invoke(IpcChannels.dialog.pickDirectory),

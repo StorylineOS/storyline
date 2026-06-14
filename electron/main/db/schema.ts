@@ -5,7 +5,7 @@
  */
 import type BetterSqlite3 from 'better-sqlite3'
 
-export const SCHEMA_VERSION = 8
+export const SCHEMA_VERSION = 9
 
 const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS project (
@@ -195,6 +195,34 @@ function migrateColumns(db: BetterSqlite3.Database): void {
   addColumnIfMissing(db, 'moodboard_items', 'parent_id', 'TEXT')
   // frame_inputs can reference another frame's output (the refine/flow connector).
   addColumnIfMissing(db, 'frame_inputs', 'source_frame_id', 'TEXT')
+
+  // v8 → v9: a flow input has a source_frame_id and NO asset_id, so asset_id must be
+  // nullable. Older DBs created the column NOT NULL, which SQLite can't relax via
+  // ALTER — rebuild the table when needed. Runs after source_frame_id exists above.
+  relaxFrameInputsAssetId(db)
+}
+
+/** Rebuild frame_inputs to drop a legacy NOT NULL on asset_id. Idempotent. */
+function relaxFrameInputsAssetId(db: BetterSqlite3.Database): void {
+  if (!tableExists(db, 'frame_inputs')) return
+  const cols = db.pragma('table_info(frame_inputs)') as Array<{ name: string; notnull: number }>
+  const assetCol = cols.find((c) => c.name === 'asset_id')
+  if (!assetCol || assetCol.notnull === 0) return // already nullable (or absent)
+  db.transaction(() => {
+    db.exec(`
+      CREATE TABLE frame_inputs_new (
+        id              TEXT PRIMARY KEY,
+        frame_id        TEXT NOT NULL,
+        asset_id        TEXT,
+        source_frame_id TEXT,
+        position        INTEGER NOT NULL
+      );
+      INSERT INTO frame_inputs_new (id, frame_id, asset_id, source_frame_id, position)
+        SELECT id, frame_id, asset_id, source_frame_id, position FROM frame_inputs;
+      DROP TABLE frame_inputs;
+      ALTER TABLE frame_inputs_new RENAME TO frame_inputs;
+    `)
+  })()
 }
 
 function tableExists(db: BetterSqlite3.Database, table: string): boolean {

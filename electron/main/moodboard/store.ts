@@ -134,6 +134,34 @@ export function listBoard(): MoodboardSnapshot {
   return { items, connectors }
 }
 
+/**
+ * Replace the whole board with the given items + connectors (undo/redo restore).
+ * Runs in one transaction: clear the project's items/connectors, then re-insert the
+ * snapshot preserving ids. Items reference assets/frames by id, which persist
+ * independently, so restoring the board re-links them.
+ */
+export function replaceBoard(items: MoodboardItem[], connectors: MoodboardConnector[]): void {
+  const db = getDb()
+  const pid = projectId()
+  const insItem = db.prepare(
+    `INSERT INTO moodboard_items
+       (id, project_id, type, asset_id, frame_id, parent_id, data, x, y, width, height, rotation, z_index, created_at, updated_at)
+     VALUES (@id, @projectId, @type, @assetId, @frameId, @parentId, @data, @x, @y, @width, @height, @rotation, @zIndex, @createdAt, @updatedAt)`,
+  )
+  const insConn = db.prepare(
+    `INSERT INTO moodboard_connectors (id, project_id, from_item_id, to_item_id, label, data, created_at)
+     VALUES (@id, @projectId, @fromItemId, @toItemId, @label, @data, @createdAt)`,
+  )
+  db.transaction(() => {
+    db.prepare('DELETE FROM moodboard_connectors WHERE project_id = ?').run(pid)
+    db.prepare('DELETE FROM moodboard_items WHERE project_id = ?').run(pid)
+    for (const it of items)
+      insItem.run({ ...it, projectId: pid, data: JSON.stringify(it.data ?? {}) })
+    for (const c of connectors)
+      insConn.run({ ...c, projectId: pid, data: JSON.stringify(c.data ?? {}) })
+  })()
+}
+
 export function addAssetItem(assetId: string, x: number, y: number): MoodboardItem {
   const asset = getDb().prepare('SELECT id, kind FROM assets WHERE id = ?').get(assetId) as
     | { id: string; kind: 'image' | 'video' | 'audio' }

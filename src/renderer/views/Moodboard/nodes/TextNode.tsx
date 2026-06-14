@@ -33,7 +33,8 @@ export function TextNode({ id, data, selected }: NodeProps): React.JSX.Element {
     if (!el || !it) return
     const chrome = it.height - el.clientHeight // padding + border, measured live
     const needed = el.scrollHeight + chrome
-    if (needed > 0 && needed - it.height > 1) void updateItem(id, { height: needed })
+    // Programmatic auto-grow — don't pollute the undo history.
+    if (needed > 0 && needed - it.height > 1) void updateItem(id, { height: needed }, false)
   }, [id, updateItem])
 
   const style: CSSProperties = {
