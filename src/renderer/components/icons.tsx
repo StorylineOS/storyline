@@ -81,6 +81,15 @@ export function DownloadIcon({ className }: { className?: string }): React.JSX.E
   )
 }
 
+/** `add` — plus sign. */
+export function PlusIcon({ className }: { className?: string }): React.JSX.Element {
+  return (
+    <Svg className={className}>
+      <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+    </Svg>
+  )
+}
+
 /** `folder` — a standard directory. */
 export function FolderIcon({ className }: { className?: string }): React.JSX.Element {
   return (

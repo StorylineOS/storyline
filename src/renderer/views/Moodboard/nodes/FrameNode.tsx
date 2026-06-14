@@ -5,6 +5,7 @@ import { useFrameStore } from '../../../store/frameStore'
 import { useAssetStore } from '../../../store/assetStore'
 import { useMoodboardStore } from '../../../store/moodboardStore'
 import { useUiStore } from '../../../store/uiStore'
+import { getAssetDragIds } from '../../../lib/dnd'
 import { NodeFrame } from './NodeFrame'
 
 interface FrameNodeData extends Record<string, unknown> {
@@ -42,6 +43,7 @@ export function FrameNode({ id, data, selected }: NodeProps): React.JSX.Element 
   const linkFrame = useFrameStore((s) => s.linkFrame)
   const uploadInputs = useFrameStore((s) => s.uploadInputs)
   const reorderInputs = useFrameStore((s) => s.reorderInputs)
+  const addInputs = useFrameStore((s) => s.addInputs)
   const assets = useAssetStore((s) => s.assets)
   const item = useMoodboardStore((s) => s.items.find((it) => it.id === id))
   const updateItem = useMoodboardStore((s) => s.updateItem)
@@ -49,6 +51,8 @@ export function FrameNode({ id, data, selected }: NodeProps): React.JSX.Element 
   const setLinkedWorkflow = useUiStore((s) => s.setLinkedWorkflow)
   const setActiveFrame = useUiStore((s) => s.setActiveFrame)
   const [idx, setIdx] = useState(0)
+  // True while assets are dragged over the frame — highlights it as a drop target.
+  const [dropActive, setDropActive] = useState(false)
   // Aspect ratio of the current media; drives the node height so the image fills
   // the body with no black letterboxing.
   const [aspect, setAspect] = useState<number | null>(null)
@@ -109,10 +113,39 @@ export function FrameNode({ id, data, selected }: NodeProps): React.JSX.Element 
     setIdx(0)
   }
 
+  // Accept Library assets dropped onto the frame as inputs. stopPropagation keeps
+  // the canvas from also handling the drop (which would spawn new frames). Multiple
+  // assets (⌘/Ctrl-multi-select) are added at once; already-present ones are skipped.
+  const hasAssetDrag = (e: React.DragEvent): boolean =>
+    e.dataTransfer.types.includes('application/x-storyline-asset')
+
+  const onDragOver = (e: React.DragEvent): void => {
+    if (!hasAssetDrag(e)) return
+    e.preventDefault()
+    e.stopPropagation()
+    e.dataTransfer.dropEffect = 'copy'
+    if (!dropActive) setDropActive(true)
+  }
+
+  const onDrop = (e: React.DragEvent): void => {
+    if (!hasAssetDrag(e)) return
+    e.preventDefault()
+    e.stopPropagation()
+    setDropActive(false)
+    const existing = new Set(inputs.map((i) => i.assetId))
+    const ids = getAssetDragIds(e.dataTransfer).filter((id) => !existing.has(id))
+    if (ids.length) void addInputs(frameId, ids)
+  }
+
   return (
     <>
       <NodeFrame id={id} selected={!!selected} minWidth={200} minHeight={170} padded={false}>
-        <div className="flex h-full w-full flex-col">
+        <div
+          className="relative flex h-full w-full flex-col"
+          onDragOver={onDragOver}
+          onDragLeave={() => setDropActive(false)}
+          onDrop={onDrop}
+        >
           <div className="flex items-center gap-1.5 border-b border-border bg-panel px-2 py-1">
             <span className="min-w-0 flex-1 truncate text-xs font-semibold text-zinc-100">
               Frame {frame?.name ?? '—'}
@@ -220,6 +253,12 @@ export function FrameNode({ id, data, selected }: NodeProps): React.JSX.Element 
               </>
             )}
           </div>
+
+          {dropActive && (
+            <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-md border-2 border-dashed border-accent bg-accent/15 text-[11px] font-medium text-white">
+              Add as input
+            </div>
+          )}
         </div>
       </NodeFrame>
 

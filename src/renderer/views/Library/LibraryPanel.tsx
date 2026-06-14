@@ -3,7 +3,7 @@ import { mediaUrl } from '@shared/media'
 import type { Asset, AssetFolder } from '@shared/types'
 import { useAssetStore, folderPath } from '../../store/assetStore'
 import { setAssetDragPayload } from '../../lib/dnd'
-import { CreateNewFolderIcon, DownloadIcon, FolderIcon } from '../../components/icons'
+import { CreateNewFolderIcon, FolderIcon, PlusIcon } from '../../components/icons'
 
 /** Left panel: folder navigation + import + a grid of folders and media. */
 export function LibraryPanel(): React.JSX.Element {
@@ -48,23 +48,23 @@ export function LibraryPanel(): React.JSX.Element {
     <div className="flex h-full flex-col bg-panel">
       <div className="flex items-center justify-between border-b border-border px-3 py-2">
         <span className="text-xs font-medium uppercase tracking-wide text-zinc-400">Assets</span>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1">
           <button
             onClick={() => setNewFolderName('')}
-            title="New folder"
-            aria-label="New folder"
-            className="flex h-7 w-7 items-center justify-center rounded-md border border-border text-zinc-300 hover:bg-surface"
+            title="New Folder"
+            aria-label="New Folder"
+            className="flex h-7 w-7 items-center justify-center rounded text-zinc-400 hover:text-white"
           >
             <CreateNewFolderIcon className="h-4 w-4" />
           </button>
           <button
             onClick={() => void importAssets()}
             disabled={loading}
-            title="Import media"
-            aria-label="Import media"
-            className="flex h-7 w-7 items-center justify-center rounded-md bg-accent text-white disabled:opacity-40"
+            title="Import assets"
+            aria-label="Import assets"
+            className="flex h-7 w-7 items-center justify-center rounded text-zinc-400 hover:text-white disabled:opacity-40"
           >
-            <DownloadIcon className="h-4 w-4" />
+            <PlusIcon className="h-4 w-4" />
           </button>
         </div>
       </div>

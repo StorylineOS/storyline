@@ -21,6 +21,13 @@ interface MoodboardState {
   addTextAt: (x: number, y: number) => Promise<void>
   addFrameFromAsset: (assetId: string, x: number, y: number) => Promise<void>
   addFrameItem: (frameId: string, x: number, y: number) => Promise<void>
+  /** Place an existing frame node, parented to a layer when given. */
+  addFrameItemInLayer: (
+    frameId: string,
+    x: number,
+    y: number,
+    parentId: string | null,
+  ) => Promise<void>
   addPreview: (x: number, y: number) => Promise<void>
   addLayer: (x: number, y: number) => Promise<void>
   /** Place an existing asset on the board, parented to a layer when given. */
@@ -31,6 +38,15 @@ interface MoodboardState {
     parentId: string | null,
   ) => Promise<void>
   importAndPlace: (x: number, y: number) => Promise<MoodboardItem[]>
+  /**
+   * Duplicate a set of items (Figma/Miro copy-paste) shifted by `offset`. Frames
+   * are cloned (new slot + inputs + workflow); selected layers carry their children
+   * along. Returns the newly created items.
+   */
+  duplicateItems: (
+    sources: MoodboardItem[],
+    offset: { x: number; y: number },
+  ) => Promise<MoodboardItem[]>
   updateItem: (id: string, patch: MoodboardItemPatch) => Promise<void>
   deleteItem: (id: string) => Promise<void>
   connect: (
@@ -56,6 +72,54 @@ function applyPatch(item: MoodboardItem, patch: MoodboardItemPatch): MoodboardIt
     // parentId can be set to null (detach), so distinguish "absent" from "null".
     parentId: patch.parentId !== undefined ? patch.parentId : item.parentId,
   }
+}
+
+/**
+ * Create a duplicate of one item at (x, y) under `parentId`. Frames are cloned in
+ * main (new slot + inputs + workflow); other types are recreated and then patched
+ * to carry over size and type-specific data. Returns the new item or null.
+ */
+async function copyOne(
+  item: MoodboardItem,
+  x: number,
+  y: number,
+  parentId: string | null,
+): Promise<MoodboardItem | null> {
+  const m = window.storyline.moodboard
+  let res
+  switch (item.type) {
+    case 'frame': {
+      if (!item.frameId) return null
+      const cloned = await window.storyline.frames.clone(item.frameId)
+      if (!cloned.ok) return null
+      res = await m.addFrameItem(cloned.value.id, x, y)
+      break
+    }
+    case 'asset':
+      if (!item.assetId) return null
+      res = await m.addAsset(item.assetId, x, y)
+      break
+    case 'text':
+      res = await m.addText(x, y)
+      break
+    case 'preview':
+      res = await m.addPreview(x, y)
+      break
+    case 'layer':
+      res = await m.addLayer(x, y)
+      break
+    default:
+      return null
+  }
+  if (!res.ok) {
+    return null
+  }
+  // Carry over size + parent; copy data only where it holds styling/labels (text,
+  // layer) — for frame/asset/preview the identity lives in their own column.
+  const patch: MoodboardItemPatch = { width: item.width, height: item.height, parentId }
+  if (item.type === 'text' || item.type === 'layer') patch.data = item.data
+  const patched = await m.updateItem(res.value.id, patch)
+  return patched.ok ? patched.value : res.value
 }
 
 export const useMoodboardStore = create<MoodboardState>((set) => ({
@@ -110,6 +174,21 @@ export const useMoodboardStore = create<MoodboardState>((set) => ({
       const res = await window.storyline.moodboard.addFrameItem(frameId, x, y)
       if (!res.ok) return set({ error: res.error })
       set((s) => ({ items: [...s.items, res.value] }))
+    } catch (e) {
+      set({ error: ipcErrorMessage(e) })
+    }
+  },
+
+  addFrameItemInLayer: async (frameId, x, y, parentId) => {
+    try {
+      const res = await window.storyline.moodboard.addFrameItem(frameId, x, y)
+      if (!res.ok) return set({ error: res.error })
+      let item = res.value
+      if (parentId) {
+        const patched = await window.storyline.moodboard.updateItem(item.id, { parentId })
+        if (patched.ok) item = patched.value
+      }
+      set((s) => ({ items: [...s.items, item] }))
     } catch (e) {
       set({ error: ipcErrorMessage(e) })
     }
@@ -187,6 +266,53 @@ export const useMoodboardStore = create<MoodboardState>((set) => ({
       }
       set((s) => ({ items: [...s.items, ...res.value] }))
       return res.value
+    } catch (e) {
+      set({ error: ipcErrorMessage(e) })
+      return []
+    }
+  },
+
+  duplicateItems: async (sources, offset) => {
+    try {
+      const created: MoodboardItem[] = []
+      // Copy layers first so children can be re-parented to the new layer ids.
+      const layerMap = new Map<string, string>()
+      for (const layer of sources.filter((s) => s.type === 'layer')) {
+        const copy = await copyOne(layer, layer.x + offset.x, layer.y + offset.y, null)
+        if (copy) {
+          layerMap.set(layer.id, copy.id)
+          created.push(copy)
+        }
+      }
+
+      // Items to copy: the selected non-layers, plus every child of a copied layer
+      // (so a group duplicates with its contents). Dedupe by id.
+      const items = useMoodboardStore.getState().items
+      const toCopy = new Map<string, MoodboardItem>()
+      for (const s of sources) if (s.type !== 'layer') toCopy.set(s.id, s)
+      for (const it of items) if (it.parentId && layerMap.has(it.parentId)) toCopy.set(it.id, it)
+
+      let clonedFrame = false
+      for (const it of toCopy.values()) {
+        const parentCopied = it.parentId != null && layerMap.has(it.parentId)
+        const newParentId = parentCopied
+          ? (layerMap.get(it.parentId as string) ?? null)
+          : it.parentId
+        // A child of a copied layer keeps its relative position (the layer already
+        // moved); anything else is shifted by the paste offset.
+        const x = parentCopied ? it.x : it.x + offset.x
+        const y = parentCopied ? it.y : it.y + offset.y
+        const copy = await copyOne(it, x, y, newParentId)
+        if (copy) {
+          created.push(copy)
+          if (it.type === 'frame') clonedFrame = true
+        }
+      }
+
+      if (created.length) set((s) => ({ items: [...s.items, ...created] }))
+      // Cloned frames are new entities in main — refresh so their nodes resolve.
+      if (clonedFrame) await useFrameStore.getState().load()
+      return created
     } catch (e) {
       set({ error: ipcErrorMessage(e) })
       return []

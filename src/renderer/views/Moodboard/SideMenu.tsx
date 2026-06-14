@@ -6,6 +6,7 @@ import { useAssetStore } from '../../store/assetStore'
 import { useMoodboardStore } from '../../store/moodboardStore'
 import { useUiStore } from '../../store/uiStore'
 import { LibraryPanel } from '../Library/LibraryPanel'
+import { setFrameDragPayload } from '../../lib/dnd'
 import { EditIcon, FolderIcon, HistoryIcon, ImageIcon, WorkflowIcon } from '../../components/icons'
 
 type Tab = 'assets' | 'timeline'
@@ -172,7 +173,12 @@ function FrameFolder({
 
   return (
     <div className="overflow-hidden rounded border border-border">
-      <div className="flex items-center gap-1 bg-surface px-1.5 py-1">
+      <div
+        draggable
+        onDragStart={(e) => setFrameDragPayload(e.dataTransfer, frame.id)}
+        title="Drag onto the canvas to place this frame"
+        className="flex cursor-grab items-center gap-1 bg-surface px-1.5 py-1 active:cursor-grabbing"
+      >
         <button
           onClick={() => setOpen((o) => !o)}
           className="flex min-w-0 flex-1 items-center gap-1 text-left"

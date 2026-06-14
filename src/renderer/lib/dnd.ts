@@ -21,3 +21,17 @@ export function getAssetDragIds(dt: DataTransfer): string[] {
   }
   return []
 }
+
+/** Carries a frame id when dragging a frame from the Timeline tab onto the canvas. */
+export const FRAME_DND_TYPE = 'application/x-storyline-frame'
+
+/** Encode the dragged frame id onto a drag event's dataTransfer. */
+export function setFrameDragPayload(dt: DataTransfer, frameId: string): void {
+  dt.setData(FRAME_DND_TYPE, frameId)
+  dt.effectAllowed = 'copy'
+}
+
+/** Decode a dragged frame id, or null when the drag isn't a frame. */
+export function getFrameDragId(dt: DataTransfer): string | null {
+  return dt.getData(FRAME_DND_TYPE) || null
+}

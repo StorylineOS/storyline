@@ -4,6 +4,7 @@ import {
   ReactFlowProvider,
   Background,
   ConnectionMode,
+  SelectionMode,
   useNodesState,
   useEdgesState,
   useReactFlow,
@@ -21,7 +22,7 @@ import type { MoodboardItem, MoodboardConnector, TextItemData } from '@shared/ty
 import { useMoodboardStore } from '../../store/moodboardStore'
 import { useAssetStore } from '../../store/assetStore'
 import { useFrameStore } from '../../store/frameStore'
-import { getAssetDragIds } from '../../lib/dnd'
+import { getAssetDragIds, getFrameDragId } from '../../lib/dnd'
 import { ImageNode } from './nodes/ImageNode'
 import { VideoNode } from './nodes/VideoNode'
 import { AudioNode } from './nodes/AudioNode'
@@ -130,15 +131,20 @@ function Board(): React.JSX.Element {
     useMoodboardStore()
   const addTextAt = useMoodboardStore((s) => s.addTextAt)
   const addFrameFromAssetInLayer = useMoodboardStore((s) => s.addFrameFromAssetInLayer)
+  const addFrameItemInLayer = useMoodboardStore((s) => s.addFrameItemInLayer)
   const addPreview = useMoodboardStore((s) => s.addPreview)
   const addLayer = useMoodboardStore((s) => s.addLayer)
+  const duplicateItems = useMoodboardStore((s) => s.duplicateItems)
   const assets = useAssetStore((s) => s.assets)
   const loadAssets = useAssetStore((s) => s.load)
   const loadFrames = useFrameStore((s) => s.load)
   const wrapperRef = useRef<HTMLDivElement>(null)
-  const { screenToFlowPosition } = useReactFlow()
+  const { screenToFlowPosition, getNodes } = useReactFlow()
   const [nodes, setNodes] = useNodesState<Node>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
+  // In-memory clipboard for copy/paste; pasteCount cascades repeated pastes.
+  const clipboard = useRef<MoodboardItem[]>([])
+  const pasteCount = useRef(0)
 
   useEffect(() => {
     void load()
@@ -181,6 +187,39 @@ function Board(): React.JSX.Element {
     setNodes((nds) => applyNodeChanges(changes, nds))
   }
 
+  // Figma/Miro-style copy (⌘/Ctrl-C) and paste (⌘/Ctrl-V). Delete is handled by
+  // React Flow's deleteKeyCode + onNodesDelete. Ignored while editing text/inputs.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if (!(e.metaKey || e.ctrlKey)) return
+      const t = e.target as HTMLElement | null
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return
+      const key = e.key.toLowerCase()
+
+      if (key === 'c') {
+        const selectedIds = new Set(
+          getNodes()
+            .filter((n) => n.selected)
+            .map((n) => n.id),
+        )
+        const picked = useMoodboardStore.getState().items.filter((it) => selectedIds.has(it.id))
+        if (picked.length) {
+          clipboard.current = picked
+          pasteCount.current = 0
+          e.preventDefault()
+        }
+      } else if (key === 'v') {
+        if (clipboard.current.length === 0) return
+        e.preventDefault()
+        pasteCount.current += 1
+        const shift = 32 * pasteCount.current
+        void duplicateItems(clipboard.current, { x: shift, y: shift })
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [getNodes, duplicateItems])
+
   const centre = (): { x: number; y: number } => {
     const rect = wrapperRef.current?.getBoundingClientRect()
     if (!rect) return { x: 0, y: 0 }
@@ -204,9 +243,22 @@ function Board(): React.JSX.Element {
 
   const onDrop = (e: React.DragEvent): void => {
     e.preventDefault()
+    const drop = screenToFlowPosition({ x: e.clientX, y: e.clientY })
+
+    // A frame dragged from the Timeline tab → place its node on the canvas (skip if
+    // it's already placed, to avoid two nodes pointing at the same frame).
+    const frameId = getFrameDragId(e.dataTransfer)
+    if (frameId) {
+      if (items.some((it) => it.type === 'frame' && it.frameId === frameId)) return
+      const layer = layerAt(drop)
+      const x = layer ? drop.x - layer.x : drop.x
+      const y = layer ? drop.y - layer.y : drop.y
+      void addFrameItemInLayer(frameId, x, y, layer?.id ?? null)
+      return
+    }
+
     const ids = getAssetDragIds(e.dataTransfer)
     if (ids.length === 0) return
-    const drop = screenToFlowPosition({ x: e.clientX, y: e.clientY })
     ids.forEach((assetId, i) => {
       const abs = { x: drop.x + i * 24, y: drop.y + i * 24 }
       const layer = layerAt(abs)
@@ -260,6 +312,11 @@ function Board(): React.JSX.Element {
           edgeTypes={edgeTypes}
           connectionMode={ConnectionMode.Loose}
           deleteKeyCode={['Backspace', 'Delete']}
+          // Figma/Miro multi-select: hold ⌘/Ctrl/Shift and drag to marquee, or
+          // ⌘/Ctrl/Shift-click to add to the selection. Partial = touch to select.
+          selectionKeyCode={['Meta', 'Control', 'Shift']}
+          multiSelectionKeyCode={['Meta', 'Control', 'Shift']}
+          selectionMode={SelectionMode.Partial}
           defaultEdgeOptions={{ interactionWidth: 20 }}
           onDrop={onDrop}
           onDragOver={(e) => {
