@@ -29,8 +29,14 @@ export function Workspace({ project }: { project: Project }): React.JSX.Element 
     <div className="flex h-full flex-col">
       <header className="relative flex h-12 shrink-0 items-center justify-between border-b border-border bg-surface px-3">
         <div className="flex items-center gap-2.5">
-          <Logo size={26} />
-          <span className="text-sm font-semibold text-white">Storyline</span>
+          <button
+            onClick={onClose}
+            title="Back to your projects"
+            className="-m-1 flex items-center gap-2.5 rounded p-1 transition-opacity hover:opacity-75"
+          >
+            <Logo size={26} />
+            <span className="text-sm font-semibold text-white">Storyline</span>
+          </button>
           <span className="text-zinc-600">/</span>
           <span className="text-sm text-zinc-300">{project.name}</span>
         </div>
