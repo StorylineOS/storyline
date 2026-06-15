@@ -11,6 +11,7 @@ import { randomUUID } from 'node:crypto'
 import type { Project } from '@shared/types'
 import { openProjectDb, getDb } from '../db'
 import { recordRecent } from './recents'
+import { backfillVideoAssets } from '../assets/store'
 
 const PROJECT_EXT = '.storyline'
 const SUBDIRS = ['assets', 'takes', 'thumbs']
@@ -88,6 +89,8 @@ export function openProject(folder: string): Project {
   const project = loadProjectRow(folder)
   currentProject = project
   recordRecent({ name: project.name, path: folder })
+  // Catch up videos imported before posters/transcodes existed (background, best-effort).
+  backfillVideoAssets()
   return project
 }
 

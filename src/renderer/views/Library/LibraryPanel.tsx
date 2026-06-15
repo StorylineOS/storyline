@@ -4,6 +4,7 @@ import type { Asset, AssetFolder } from '@shared/types'
 import { useAssetStore, folderPath } from '../../store/assetStore'
 import { setAssetDragPayload } from '../../lib/dnd'
 import { CreateNewFolderIcon, FolderIcon, PlusIcon } from '../../components/icons'
+import { VideoPreview } from '../../components/VideoPreview'
 
 /** Left panel: folder navigation + import + a grid of folders and media. */
 export function LibraryPanel(): React.JSX.Element {
@@ -209,6 +210,8 @@ function AssetThumb({
   onDelete: () => void
 }): React.JSX.Element {
   const url = mediaUrl(asset.filePath)
+  const videoSrc = mediaUrl(asset.previewPath ?? asset.filePath)
+  const poster = asset.thumbPath ? mediaUrl(asset.thumbPath) : undefined
   return (
     <div className="group relative">
       <button
@@ -232,7 +235,7 @@ function AssetThumb({
             <img src={url} alt={asset.name} className="h-full w-full object-cover" />
           )}
           {asset.kind === 'video' && (
-            <video src={url} muted preload="metadata" className="h-full w-full object-cover" />
+            <VideoPreview src={videoSrc} poster={poster} className="h-full w-full object-cover" />
           )}
           {asset.kind === 'audio' && <span className="text-2xl">🎵</span>}
         </div>

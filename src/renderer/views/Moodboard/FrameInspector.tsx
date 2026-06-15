@@ -137,7 +137,11 @@ export function FrameInspector(): React.JSX.Element | null {
                 title={`${a.name} — drag to reorder`}
                 className="group relative h-16 w-16 cursor-grab overflow-hidden rounded border border-border bg-black/40"
               >
-                <Media url={mediaUrl(a.filePath)} kind={a.kind} />
+                <Media
+                  url={mediaUrl(a.previewPath ?? a.filePath)}
+                  kind={a.kind}
+                  poster={a.thumbPath ? mediaUrl(a.thumbPath) : undefined}
+                />
                 {inputAssets.length > 1 && (
                   <button
                     onClick={() => void removeInput(frame.id, a.id)}
@@ -255,12 +259,22 @@ function Section({
 function Media({
   url,
   kind,
+  poster,
 }: {
   url: string
   kind: 'image' | 'video' | 'audio'
+  poster?: string
 }): React.JSX.Element {
   if (kind === 'video')
-    return <video src={url} muted preload="metadata" className="h-full w-full object-cover" />
+    return (
+      <video
+        src={url}
+        poster={poster}
+        muted
+        preload="metadata"
+        className="h-full w-full object-cover"
+      />
+    )
   if (kind === 'audio')
     return <span className="flex h-full w-full items-center justify-center text-lg">🎵</span>
   return <img src={url} alt="" className="h-full w-full object-cover" />

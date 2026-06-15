@@ -70,6 +70,25 @@ python main.py --enable-cors-header     # then paste http://127.0.0.1:8188 in-ap
 
 ---
 
+## Building a desktop app
+
+To produce an installer you can hand to someone, package it for your platform:
+
+```bash
+npm run package:mac      # .dmg + .zip in dist/  (Apple Silicon + Intel)
+npm run package:win      # NSIS .exe installer in dist/
+npm run package:linux    # AppImage in dist/
+```
+
+A few things to know:
+
+- **Build each OS on its own OS.** Storyline ships a native module (SQLite), which has to be compiled for the target machine. So build the Mac app on a Mac and the Windows app on Windows. The easiest way to get both from one place is CI: run `package:mac` on a macOS runner and `package:win` on a Windows runner.
+- **After packaging, `npm run dev` may complain about the native module.** Packaging rebuilds SQLite for the target architecture; run `npm run rebuild` to restore it for local development.
+- **The builds are unsigned.** On first launch macOS and Windows will warn about an unidentified developer. On a Mac, right-click the app and choose Open (or remove the quarantine flag with `xattr -dr com.apple.quarantine /Applications/Storyline.app`). For real distribution you'll want code signing and notarization.
+- **App icon.** The icon lives in `build/` (`icon.png` is the source). Replace it there and re-package to rebrand.
+
+---
+
 ## Contributing
 
 Storyline is early and moving fast, and issues, ideas, and pull requests are all welcome. If you're poking at the code, [CLAUDE.md](CLAUDE.md) is the engineering guide: it explains the architecture, the data model, and the conventions to follow.

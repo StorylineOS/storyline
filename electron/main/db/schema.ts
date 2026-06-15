@@ -5,7 +5,7 @@
  */
 import type BetterSqlite3 from 'better-sqlite3'
 
-export const SCHEMA_VERSION = 9
+export const SCHEMA_VERSION = 10
 
 const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS project (
@@ -63,14 +63,15 @@ CREATE TABLE IF NOT EXISTS asset_folders (
 );
 
 CREATE TABLE IF NOT EXISTS assets (
-  id          TEXT PRIMARY KEY,
-  project_id  TEXT NOT NULL,
-  folder_id   TEXT,
-  name        TEXT NOT NULL,
-  file_path   TEXT NOT NULL,
-  kind        TEXT NOT NULL,
-  thumb_path  TEXT,
-  created_at  INTEGER NOT NULL
+  id           TEXT PRIMARY KEY,
+  project_id   TEXT NOT NULL,
+  folder_id    TEXT,
+  name         TEXT NOT NULL,
+  file_path    TEXT NOT NULL,
+  kind         TEXT NOT NULL,
+  thumb_path   TEXT,
+  preview_path TEXT,
+  created_at   INTEGER NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS moodboard_items (
@@ -200,6 +201,10 @@ function migrateColumns(db: BetterSqlite3.Database): void {
   // nullable. Older DBs created the column NOT NULL, which SQLite can't relax via
   // ALTER — rebuild the table when needed. Runs after source_frame_id exists above.
   relaxFrameInputsAssetId(db)
+
+  // v9 → v10: assets gain a Chromium-playable transcode path (for videos in codecs
+  // the UI can't decode natively).
+  addColumnIfMissing(db, 'assets', 'preview_path', 'TEXT')
 }
 
 /** Rebuild frame_inputs to drop a legacy NOT NULL on asset_id. Idempotent. */

@@ -101,7 +101,10 @@ export interface Asset {
   /** Relative path under the project's `assets/` folder. */
   filePath: string
   kind: AssetKind
+  /** Poster image (first frame) for videos, so they always render. Relative path. */
   thumbPath: string | null
+  /** A Chromium-playable transcode for videos in codecs the UI can't decode. Relative. */
+  previewPath: string | null
   createdAt: number
 }
 

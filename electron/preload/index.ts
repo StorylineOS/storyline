@@ -122,6 +122,13 @@ const api: StorylineApi = {
   shell: {
     openExternal: (url: string) => ipcRenderer.invoke(IpcChannels.shell.openExternal, url),
   },
+  events: {
+    onLibraryChanged: (callback: () => void) => {
+      const listener = (): void => callback()
+      ipcRenderer.on(IpcChannels.events.libraryChanged, listener)
+      return () => ipcRenderer.removeListener(IpcChannels.events.libraryChanged, listener)
+    },
+  },
 }
 
 contextBridge.exposeInMainWorld('storyline', api)

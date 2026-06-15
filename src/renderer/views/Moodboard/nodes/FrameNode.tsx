@@ -6,6 +6,7 @@ import { useAssetStore } from '../../../store/assetStore'
 import { useMoodboardStore } from '../../../store/moodboardStore'
 import { useUiStore } from '../../../store/uiStore'
 import { getAssetDragIds } from '../../../lib/dnd'
+import { VideoPreview } from '../../../components/VideoPreview'
 import { NodeFrame } from './NodeFrame'
 
 interface FrameNodeData extends Record<string, unknown> {
@@ -13,7 +14,14 @@ interface FrameNodeData extends Record<string, unknown> {
 }
 
 /** A resolved carousel thumbnail (from an asset input or a flow/source-frame input). */
-type Thumb = { id: string; assetId: string | null; url: string; kind: 'image' | 'video' | 'audio' }
+type Thumb = {
+  id: string
+  assetId: string | null
+  url: string
+  kind: 'image' | 'video' | 'audio'
+  /** Poster image for a video, so it renders even when the codec can't be decoded. */
+  poster?: string
+}
 
 // Bounds for the media body when fitting to a media's aspect ratio — keeps very
 // wide/tall inputs from collapsing or ballooning the node.
@@ -72,7 +80,15 @@ export function FrameNode({ id, data, selected }: NodeProps): React.JSX.Element 
     .map((i): Thumb | null => {
       if (i.assetId) {
         const a = assets.find((x) => x.id === i.assetId)
-        return a ? { id: i.id, assetId: a.id, url: mediaUrl(a.filePath), kind: a.kind } : null
+        if (!a) return null
+        return {
+          id: i.id,
+          assetId: a.id,
+          // Prefer the playable transcode for video; the poster covers undecodable codecs.
+          url: mediaUrl(a.previewPath ?? a.filePath),
+          kind: a.kind,
+          poster: a.thumbPath ? mediaUrl(a.thumbPath) : undefined,
+        }
       }
       if (i.sourceFrameId) {
         const sf = allFrames.find((f) => f.id === i.sourceFrameId)
@@ -222,10 +238,11 @@ export function FrameNode({ id, data, selected }: NodeProps): React.JSX.Element 
           >
             {cur ? (
               cur.kind === 'video' ? (
-                <video
+                // `cur.url` is the playable source (transcoded preview when needed);
+                // the poster shows while that transcode is still in progress.
+                <VideoPreview
                   src={cur.url}
-                  muted
-                  preload="metadata"
+                  poster={cur.poster}
                   onLoadedMetadata={(e) => {
                     const v = e.currentTarget
                     if (v.videoWidth && v.videoHeight) setAspect(v.videoWidth / v.videoHeight)

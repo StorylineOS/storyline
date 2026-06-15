@@ -26,6 +26,8 @@ files:
 asarUnpack:
   - '**/*.node'
   - 'node_modules/better-sqlite3/**'
+  # ffmpeg-static ships an executable that must run from disk, not inside the asar.
+  - 'node_modules/ffmpeg-static/**'
 
 mac:
   category: public.app-category.video

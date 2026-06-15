@@ -257,7 +257,13 @@ function FrameFolder({
               <Empty>none</Empty>
             ) : (
               inputAssets.map((a) => (
-                <FileRow key={a.id} name={a.name} thumb={mediaUrl(a.filePath)} kind={a.kind} />
+                <FileRow
+                  key={a.id}
+                  name={a.name}
+                  thumb={mediaUrl(a.previewPath ?? a.filePath)}
+                  kind={a.kind}
+                  poster={a.thumbPath ? mediaUrl(a.thumbPath) : undefined}
+                />
               ))
             )}
           </Folder>
@@ -328,18 +334,26 @@ function FileRow({
   thumb,
   kind,
   badge,
+  poster,
 }: {
   name: string
   thumb: string
   kind: 'image' | 'video' | 'audio'
   badge?: string
+  poster?: string
 }): React.JSX.Element {
   return (
     <div className="flex items-center gap-1.5 py-0.5">
       <div className="h-7 w-7 shrink-0 overflow-hidden rounded border border-border bg-black/40">
         {kind === 'image' && <img src={thumb} alt="" className="h-full w-full object-cover" />}
         {kind === 'video' && (
-          <video src={thumb} muted preload="metadata" className="h-full w-full object-cover" />
+          <video
+            src={thumb}
+            poster={poster}
+            muted
+            preload="metadata"
+            className="h-full w-full object-cover"
+          />
         )}
         {kind === 'audio' && (
           <span className="flex h-full w-full items-center justify-center text-xs">🎵</span>

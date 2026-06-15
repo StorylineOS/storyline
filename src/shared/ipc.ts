@@ -109,6 +109,10 @@ export const IpcChannels = {
   shell: {
     openExternal: 'shell:openExternal',
   },
+  events: {
+    /** Main → renderer: the asset library changed (e.g. a video poster/transcode is ready). */
+    libraryChanged: 'events:libraryChanged',
+  },
 } as const
 
 /** Geometry/content fields a moodboard item update may change. */
@@ -272,6 +276,10 @@ export interface StorylineApi {
   shell: {
     /** Open an http(s) URL in the user's default browser. */
     openExternal(url: string): Promise<Result<void>>
+  }
+  events: {
+    /** Subscribe to "asset library changed" pushes from main. Returns an unsubscribe fn. */
+    onLibraryChanged(callback: () => void): () => void
   }
 }
 

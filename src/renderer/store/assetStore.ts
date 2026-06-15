@@ -113,6 +113,12 @@ export const useAssetStore = create<AssetState>((set, get) => ({
     set({ folders: [], assets: [], currentFolderId: null, selectedId: null, error: null }),
 }))
 
+// Main pushes this when a background job finishes (e.g. a video poster or playable
+// transcode is ready) — refresh the library so the new media shows up.
+window.storyline.events.onLibraryChanged(() => {
+  void useAssetStore.getState().load()
+})
+
 /** The chain of folders from root to the current one (for breadcrumbs). */
 export function folderPath(folders: AssetFolder[], currentId: string | null): AssetFolder[] {
   const byId = new Map(folders.map((f) => [f.id, f]))
