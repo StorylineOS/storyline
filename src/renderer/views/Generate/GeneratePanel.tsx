@@ -373,6 +373,9 @@ function CaptureStrip({
   onCapture: (output: ComfyOutput) => void
   onDismiss: () => void
 }): React.JSX.Element {
+  // Dedupe by url so a tile (and its React key) is never repeated, even if the run
+  // reports the same file under multiple nodes.
+  const outputs = Array.from(new Map(run.outputs.map((o) => [o.url, o])).values())
   return (
     <div className="absolute inset-x-0 bottom-0 z-10 border-t border-border bg-panel/95 p-2 backdrop-blur">
       <div className="mb-1.5 flex items-center justify-between">
@@ -394,7 +397,7 @@ function CaptureStrip({
         </button>
       </div>
       <div className="flex gap-2 overflow-x-auto pb-1">
-        {run.outputs.map((output) => (
+        {outputs.map((output) => (
           <CaptureTile
             key={output.url}
             output={output}

@@ -3,8 +3,9 @@
  * (see CLAUDE.md): contextIsolation on, nodeIntegration off, sandbox on. The
  * renderer reaches the outside world only through the preload bridge + IPC.
  */
-import { app, BrowserWindow, shell } from 'electron'
+import { app, BrowserWindow, shell, nativeImage } from 'electron'
 import { join } from 'node:path'
+import { existsSync } from 'node:fs'
 import { registerIpcHandlers } from './ipc'
 import { registerMediaScheme, registerMediaProtocol } from './media/protocol'
 import { closeProjectDb } from './db'
@@ -13,6 +14,20 @@ const isDev = !app.isPackaged
 
 // Must be registered before the app is ready.
 registerMediaScheme()
+
+/**
+ * In dev, macOS takes the dock icon from the (default Electron) bundle, so our SL
+ * icon never shows. Point the dock at the build icon. No-op once packaged — the
+ * .app already carries `build/icon.icns`.
+ */
+function setDevDockIcon(): void {
+  if (!isDev || process.platform !== 'darwin' || !app.dock) return
+  // __dirname is <project>/out/main in dev; the icon lives at <project>/build.
+  const iconPath = join(__dirname, '../../build/icon.png')
+  if (!existsSync(iconPath)) return
+  const img = nativeImage.createFromPath(iconPath)
+  if (!img.isEmpty()) app.dock.setIcon(img)
+}
 
 function createMainWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -59,6 +74,7 @@ function createMainWindow(): BrowserWindow {
 app.whenReady().then(() => {
   registerMediaProtocol()
   registerIpcHandlers()
+  setDevDockIcon()
   createMainWindow()
 
   app.on('activate', () => {

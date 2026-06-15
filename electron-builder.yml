@@ -1,0 +1,54 @@
+# electron-builder packaging config. `npm run build` compiles the app into out/;
+# electron-builder then bundles out/ + the production node_modules (including the
+# native better-sqlite3 addon) into platform installers under dist/.
+appId: com.storyline.app
+productName: Storyline
+directories:
+  output: dist
+  buildResources: build
+
+# `files` uses negation-only patterns so electron-builder keeps its defaults
+# (out/ and production node_modules are included; only source/config is trimmed).
+files:
+  - '!**/.vscode/*'
+  - '!src/**'
+  - '!electron/**'
+  - '!screenshots/**'
+  - '!.claude/**'
+  - '!electron.vite.config.{js,ts,mjs,cjs}'
+  - '!{.eslintrc.cjs,eslint.config.js,.prettierrc,.prettierignore,.editorconfig}'
+  - '!{.env,.env.*,.npmrc,package-lock.json,pnpm-lock.yaml,yarn.lock}'
+  - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+  - '!{README.md,CLAUDE.md,task.md,LICENSE}'
+
+# better-sqlite3 is a native addon: its .node binary must live outside the asar
+# archive so the OS loader can dlopen it.
+asarUnpack:
+  - '**/*.node'
+  - 'node_modules/better-sqlite3/**'
+
+mac:
+  category: public.app-category.video
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+    - target: zip
+      arch: [arm64, x64]
+  # Unsigned local builds: skip notarization. For distribution, add signing creds.
+  identity: null
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  artifactName: ${name}-${version}-setup.${ext}
+
+linux:
+  target:
+    - AppImage
+  category: AudioVideo

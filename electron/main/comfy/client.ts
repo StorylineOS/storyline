@@ -332,15 +332,24 @@ interface HistoryEntry {
   outputs: Record<string, Record<string, OutputFile[]>>
 }
 
-/** All downloadable files across a history entry's node outputs, in node order. */
+/**
+ * All downloadable files across a history entry's node outputs, in node order,
+ * deduped by (filename, subfolder, type). The same file commonly appears under
+ * several nodes (e.g. a Preview node and a Save node both reference one temp file),
+ * which would otherwise produce duplicate capture tiles / colliding React keys.
+ */
 function collectOutputs(outputs: HistoryEntry['outputs']): OutputFile[] {
   const files: OutputFile[] = []
+  const seen = new Set<string>()
   for (const node of Object.values(outputs)) {
     for (const value of Object.values(node)) {
-      if (Array.isArray(value)) {
-        for (const item of value) {
-          if (item && typeof item.filename === 'string') files.push(item)
-        }
+      if (!Array.isArray(value)) continue
+      for (const item of value) {
+        if (!item || typeof item.filename !== 'string') continue
+        const key = `${item.filename}|${item.subfolder ?? ''}|${item.type ?? ''}`
+        if (seen.has(key)) continue
+        seen.add(key)
+        files.push(item)
       }
     }
   }
