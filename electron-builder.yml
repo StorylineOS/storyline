@@ -31,18 +31,21 @@ asarUnpack:
 
 mac:
   category: public.app-category.video
+  # One Apple Silicon (arm64) .dmg.
   target:
     - target: dmg
-      arch: [arm64, x64]
-    - target: zip
-      arch: [arm64, x64]
+      arch: arm64
   # Unsigned local builds: skip notarization. For distribution, add signing creds.
   identity: null
 
+dmg:
+  artifactName: ${name}-${version}.${ext}
+
 win:
+  # One x64 installer (covers virtually all Windows PCs).
   target:
     - target: nsis
-      arch: [x64]
+      arch: x64
 
 nsis:
   oneClick: false
@@ -51,6 +54,15 @@ nsis:
   artifactName: ${name}-${version}-setup.${ext}
 
 linux:
+  # One x64 AppImage.
   target:
-    - AppImage
+    - target: AppImage
+      arch: x64
   category: AudioVideo
+  artifactName: ${name}-${version}.${ext}
+
+# CI publishes installers to this repo's GitHub Releases (as a draft). Local builds
+# don't publish unless run with `--publish`.
+publish:
+  provider: github
+  releaseType: draft

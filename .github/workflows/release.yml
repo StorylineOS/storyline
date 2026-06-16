@@ -1,0 +1,48 @@
+name: Build & Release
+
+# Build installers for macOS, Windows and Linux and publish them to this repo's
+# GitHub Releases. Triggered by pushing a version tag (e.g. v0.1.0), so releases are
+# incremental — one per tag. Bump + tag with:  npm version patch && git push --follow-tags
+# Each OS builds on its own runner so the native SQLite module is compiled per platform.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch: {}
+
+# electron-builder needs to create/update releases on this repo.
+permissions:
+  contents: write
+
+jobs:
+  release:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # Installs deps and rebuilds the native better-sqlite3 module for this OS
+      # (via the project's electron-builder install-app-deps postinstall hook).
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint & typecheck
+        run: |
+          npm run lint
+          npm run typecheck
+
+      # `npm run build` compiles to out/; electron-builder packages it for the host
+      # OS and uploads the installers to a draft GitHub Release.
+      - name: Build & publish
+        run: |
+          npm run build
+          npx electron-builder --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -2,6 +2,8 @@
 
 **A narrative-first desktop app for filmmakers, video artists, and visual creators, powered by your own [ComfyUI](https://github.com/comfyanonymous/ComfyUI).**
 
+[![Join our Discord](https://img.shields.io/badge/Discord-Join%20the%20community-5865F2?logo=discord&logoColor=white&style=for-the-badge)](https://discord.gg/cSUS88VdY9)
+
 ComfyUI is the most capable generative engine currently: image, video, audio, LLM, every new model lands there first. But it asks you to think in node graphs and execution order. Filmmakers think in frames, scenes, and sequences. Storyline sits in between: you compose your film on a free-form canvas and work frame by frame, while ComfyUI quietly does the generation behind each one.
 
 ![Storyline canvas](screenshots/image.png)
@@ -87,6 +89,8 @@ A few things to know:
 - **The builds are unsigned.** On first launch macOS and Windows will warn about an unidentified developer. On a Mac, right-click the app and choose Open (or remove the quarantine flag with `xattr -dr com.apple.quarantine /Applications/Storyline.app`). For real distribution you'll want code signing and notarization.
 - **App icon.** The icon lives in `build/` (`icon.png` is the source). Replace it there and re-package to rebrand.
 
+Releases are automated: pushing a version tag (`npm version patch && git push --follow-tags`) builds installers for macOS (Apple Silicon), Windows, and Linux on GitHub Actions and uploads them to a draft GitHub Release.
+
 ---
 
 ## Contributing
@@ -94,6 +98,16 @@ A few things to know:
 Storyline is early and moving fast, and issues, ideas, and pull requests are all welcome. If you're poking at the code, [CLAUDE.md](CLAUDE.md) is the engineering guide: it explains the architecture, the data model, and the conventions to follow.
 
 Want to help by using it for real? Try the [creator task](task.md): build a short 20-second story in Storyline and send us your feedback.
+
+---
+
+## Help shape Storyline
+
+Are you a creator who wants to help us make this better? We run a **paid trial feedback program**: use Storyline on real work, tell us what helps and what gets in your way, and get paid for your time.
+
+Come say hi on our [Discord](https://discord.gg/cSUS88VdY9) and reach out, we'll get you set up.
+
+[![Join our Discord](https://img.shields.io/badge/Discord-Join%20the%20community-5865F2?logo=discord&logoColor=white&style=for-the-badge)](https://discord.gg/cSUS88VdY9)
 
 ## License
 
