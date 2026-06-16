@@ -50,9 +50,26 @@ Your media, your models, your machine. Storyline just gives the work a narrative
 
 ---
 
+## Install
+
+Grab a prebuilt installer from the [latest release](../../releases/latest) and open it:
+
+- **macOS (Apple Silicon):** download the `.dmg`, open it, and drag Storyline into Applications.
+- **Windows:** download the `-setup.exe` and run it.
+- **Linux:** download the `.AppImage`, make it executable (`chmod +x Storyline*.AppImage`), and run it.
+
+The builds are currently unsigned, so on first launch your system may warn about an unidentified developer:
+
+- **macOS:** right-click the app and choose Open, then Open again. If it says the app is "damaged", run `xattr -dr com.apple.quarantine /Applications/Storyline.app`.
+- **Windows:** on the SmartScreen prompt, click "More info" then "Run anyway".
+
+To actually generate, you'll also need a ComfyUI instance to connect to (see [Bring your own ComfyUI](#bring-your-own-comfyui)). The canvas and planning work without it.
+
+---
+
 ## Getting started
 
-You'll need [Node.js](https://nodejs.org) 20.11+ (22 recommended).
+Prefer to run from source? You'll need [Node.js](https://nodejs.org) 20.11+ (22 recommended).
 
 ```bash
 git clone <this-repo>
