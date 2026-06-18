@@ -5,11 +5,21 @@
  */
 import Anthropic from '@anthropic-ai/sdk'
 import type { ClaudeContext, ClaudeSendInput, ClaudeStatus } from '@shared/types'
-import type { ClaudeProposal } from '@shared/claudeActions'
+import type { ClaudeAction, ClaudeProposal } from '@shared/claudeActions'
 import { resolveModel, DEFAULT_CLAUDE_MODEL } from '@shared/claudeModels'
 import * as credentials from './credentials'
 import { SYSTEM_PROMPT } from './prompt'
-import { PROPOSE_TOOL, normalizeActions } from './tools'
+import { COMFY_SKILL } from './comfySkill'
+import {
+  PROPOSE_TOOL,
+  GET_CAPABILITIES_TOOL,
+  LOOKUP_NODES_TOOL,
+  RECALL_WORKFLOWS_TOOL,
+  normalizeActions,
+} from './tools'
+import { getCapabilities } from '../comfy/capabilityStore'
+import { lookupNodeSchemas } from '../comfy/client'
+import { recallWorkflowMemory } from '../comfy/workflowMemory'
 
 /** The model used to validate a key (any current model works). */
 export const CLAUDE_MODEL = DEFAULT_CLAUDE_MODEL
@@ -160,9 +170,12 @@ export async function runTurn(input: ClaudeSendInput, emit: TurnEmitter): Promis
         max_tokens: 16000,
         // Adaptive thinking where supported; omitted on models that reject it.
         ...(model.adaptiveThinking ? { thinking: { type: 'adaptive' as const } } : {}),
-        // System prompt is stable → cache it; volatile context rides in the user turn.
-        system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
-        tools: [PROPOSE_TOOL],
+        // Stable system blocks → cached; volatile context rides in the user turn.
+        system: [
+          { type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } },
+          { type: 'text', text: COMFY_SKILL, cache_control: { type: 'ephemeral' } },
+        ],
+        tools: [PROPOSE_TOOL, GET_CAPABILITIES_TOOL, LOOKUP_NODES_TOOL, RECALL_WORKFLOWS_TOOL],
         messages,
       })
       activeStream = stream
@@ -202,34 +215,43 @@ export async function runTurn(input: ClaudeSendInput, emit: TurnEmitter): Promis
       for (const tu of toolUses) {
         if (tu.name === PROPOSE_TOOL.name) {
           const parsed = parseProposal(tu.input)
-          if (parsed) {
-            emit.proposal({
-              id: `${input.turnId}:${proposalIndex++}`,
-              turnId: input.turnId,
-              summary: parsed.summary,
-              actions: parsed.actions,
-            })
-            results.push({
-              type: 'tool_result',
-              tool_use_id: tu.id,
-              content:
-                'Proposal queued for the user to review and apply. It has NOT been applied — do not claim the canvas changed. Briefly tell the user what you proposed.',
-            })
-          } else {
+          if (!parsed) {
             results.push({
               type: 'tool_result',
               tool_use_id: tu.id,
               content: 'That proposal had no valid actions. Reconsider and try again.',
               is_error: true,
             })
+          } else {
+            // Guard against starter graphs referencing nodes/models that aren't installed —
+            // reject (don't surface to the user) so the model self-corrects this turn.
+            const problems = await validateProposalGraphs(parsed.actions)
+            if (problems.length) {
+              results.push({
+                type: 'tool_result',
+                tool_use_id: tu.id,
+                content: `The proposed workflow references things not installed in this ComfyUI: ${problems.join('; ')}. Call get_comfy_capabilities, choose installed alternatives, and propose again. The proposal was NOT shown to the user.`,
+                is_error: true,
+              })
+            } else {
+              emit.proposal({
+                id: `${input.turnId}:${proposalIndex++}`,
+                turnId: input.turnId,
+                summary: parsed.summary,
+                actions: parsed.actions,
+              })
+              results.push({
+                type: 'tool_result',
+                tool_use_id: tu.id,
+                content:
+                  'Proposal queued for the user to review and apply. It has NOT been applied — do not claim the canvas changed. Briefly tell the user what you proposed.',
+              })
+            }
           }
         } else {
-          results.push({
-            type: 'tool_result',
-            tool_use_id: tu.id,
-            content: 'Unknown tool.',
-            is_error: true,
-          })
+          // Read-only data tools: run, return JSON for the model to reason over. Wrap each
+          // so a ComfyUI hiccup surfaces as a tool error instead of killing the turn.
+          results.push(await runDataTool(tu))
         }
       }
       messages.push({ role: 'user', content: results })
@@ -260,6 +282,86 @@ function parseProposal(
   const actions = normalizeActions(o.actions)
   if (actions.length === 0) return null
   return { summary, actions }
+}
+
+/** Check any proposed starter graphs against installed capabilities; returns problem strings. */
+async function validateProposalGraphs(actions: ClaudeAction[]): Promise<string[]> {
+  const graphs = actions
+    .filter((a) => a.kind === 'suggestWorkflow' && !!a.starterGraph)
+    .map((a) => (a as { starterGraph?: unknown }).starterGraph)
+  if (graphs.length === 0) return []
+  let caps
+  try {
+    caps = await getCapabilities()
+  } catch {
+    return [] // capabilities unavailable → don't block the proposal
+  }
+  const nodeSet = new Set(caps.nodeTypes)
+  const modelSet = new Set(Object.values(caps.models).flat())
+  const isModelFile = /\.(safetensors|ckpt|pt|pth|bin|gguf|sft)$/i
+  const unknownNodes = new Set<string>()
+  const unknownModels = new Set<string>()
+  for (const g of graphs) {
+    const nodes = (g as { nodes?: unknown[] })?.nodes
+    if (!Array.isArray(nodes)) continue
+    for (const n of nodes) {
+      const t = (n as { type?: unknown })?.type
+      if (typeof t === 'string' && !nodeSet.has(t)) unknownNodes.add(t)
+      const wv = (n as { widgets_values?: unknown })?.widgets_values
+      if (Array.isArray(wv)) {
+        for (const v of wv) {
+          if (typeof v === 'string' && isModelFile.test(v) && !modelSet.has(v)) unknownModels.add(v)
+        }
+      }
+    }
+  }
+  const problems: string[] = []
+  if (unknownNodes.size) problems.push(`unknown node types: ${[...unknownNodes].join(', ')}`)
+  if (unknownModels.size)
+    problems.push(`model files not installed: ${[...unknownModels].join(', ')}`)
+  return problems
+}
+
+/** Run a read-only data tool and return its tool_result (errors surface to the model). */
+async function runDataTool(tu: Anthropic.ToolUseBlock): Promise<Anthropic.ToolResultBlockParam> {
+  try {
+    if (tu.name === GET_CAPABILITIES_TOOL.name) {
+      const caps = await getCapabilities()
+      return {
+        type: 'tool_result',
+        tool_use_id: tu.id,
+        content: JSON.stringify({ nodeTypes: caps.nodeTypes, models: caps.models }),
+      }
+    }
+    if (tu.name === LOOKUP_NODES_TOOL.name) {
+      const raw = (tu.input as { names?: unknown })?.names
+      const names = Array.isArray(raw) ? raw.filter((n): n is string => typeof n === 'string') : []
+      return {
+        type: 'tool_result',
+        tool_use_id: tu.id,
+        content: JSON.stringify(await lookupNodeSchemas(names)),
+      }
+    }
+    if (tu.name === RECALL_WORKFLOWS_TOOL.name) {
+      const intent =
+        typeof (tu.input as { intent?: unknown })?.intent === 'string'
+          ? (tu.input as { intent: string }).intent
+          : ''
+      return {
+        type: 'tool_result',
+        tool_use_id: tu.id,
+        content: JSON.stringify(recallWorkflowMemory(intent)),
+      }
+    }
+    return { type: 'tool_result', tool_use_id: tu.id, content: 'Unknown tool.', is_error: true }
+  } catch (e) {
+    return {
+      type: 'tool_result',
+      tool_use_id: tu.id,
+      content: `Tool failed: ${e instanceof Error ? e.message : String(e)}`,
+      is_error: true,
+    }
+  }
 }
 
 /** Abort the in-flight turn, if any. */

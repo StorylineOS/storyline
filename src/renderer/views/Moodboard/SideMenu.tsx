@@ -76,7 +76,7 @@ export function SideMenu(): React.JSX.Element {
             }}
             title={t.label}
             className={`flex h-9 w-9 items-center justify-center rounded ${
-              tab === t.key ? 'bg-accent text-white' : 'text-zinc-400 hover:bg-surface'
+              tab === t.key ? 'bg-accent text-panel' : 'text-zinc-400 hover:bg-surface'
             }`}
           >
             <t.Icon className="h-5 w-5" />
@@ -99,7 +99,7 @@ export function SideMenu(): React.JSX.Element {
               onClick={() => setTab(t.key)}
               title={t.label}
               className={`flex items-center gap-1 rounded px-2 py-1 text-[13px] font-medium ${
-                tab === t.key ? 'bg-accent text-white' : 'text-zinc-400 hover:text-zinc-200'
+                tab === t.key ? 'bg-accent text-panel' : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
               <t.Icon className="h-3.5 w-3.5" />

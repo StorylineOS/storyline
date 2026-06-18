@@ -38,14 +38,14 @@ export function registerProjectHandlers(): void {
 
   handle<[], Project | null>(IpcChannels.project.openDialog, async () => {
     const result = await dialog.showOpenDialog({
-      title: 'Open Storyline Project',
+      title: 'Open Inline Studio Project',
       properties: ['openDirectory'],
       buttonLabel: 'Open Project',
     })
     if (result.canceled || result.filePaths.length === 0) return null
     const folder = result.filePaths[0]
     if (!isProjectFolder(folder)) {
-      throw new Error('That folder is not a Storyline project.')
+      throw new Error('That folder is not a Inline Studio project.')
     }
     return openProject(folder)
   })

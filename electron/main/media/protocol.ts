@@ -1,6 +1,6 @@
 /**
  * Serves the open project's local media to the sandboxed renderer over a custom
- * privileged scheme (storyline-media://). The renderer can't read files directly,
+ * privileged scheme (inlinestudio-media://). The renderer can't read files directly,
  * so it requests `mediaUrl('assets/<id>.png')` and main resolves it against the
  * currently open project folder — with `..` traversal guards.
  *
@@ -68,7 +68,7 @@ export function registerMediaProtocol(): void {
     const projectFolder = getOpenProjectFolder()
     if (!projectFolder) return new Response('No project open', { status: 404 })
 
-    // URL shape: storyline-media://local/<relative path under project folder>
+    // URL shape: inlinestudio-media://local/<relative path under project folder>
     const url = new URL(request.url)
     const relative = decodeURIComponent(url.pathname).replace(/^\/+/, '')
 

@@ -1,12 +1,12 @@
 /**
  * The ONLY bridge between renderer and main. Exposes a typed, minimal surface on
- * `window.storyline` via contextBridge — no Node, no ipcRenderer, no raw channels
+ * `window.inlineStudio` via contextBridge — no Node, no ipcRenderer, no raw channels
  * leak into the renderer (see CLAUDE.md security baseline + layering rule).
  */
 import { contextBridge, ipcRenderer } from 'electron'
 import {
   IpcChannels,
-  type StorylineApi,
+  type InlineStudioApi,
   type CreateProjectInput,
   type CreateFolderInput,
   type MoodboardItemPatch,
@@ -23,7 +23,7 @@ import type {
 import type { ClaudeProposal } from '@shared/claudeActions'
 import type { IpcRendererEvent } from 'electron'
 
-const api: StorylineApi = {
+const api: InlineStudioApi = {
   project: {
     create: (input: CreateProjectInput) => ipcRenderer.invoke(IpcChannels.project.create, input),
     open: (path: string) => ipcRenderer.invoke(IpcChannels.project.open, path),
@@ -77,8 +77,8 @@ const api: StorylineApi = {
     linkFrame: (frameId: string) => ipcRenderer.invoke(IpcChannels.comfy.linkFrame, frameId),
     uploadInputs: (frameId: string) => ipcRenderer.invoke(IpcChannels.comfy.uploadInputs, frameId),
     pullWorkflow: (frameId: string) => ipcRenderer.invoke(IpcChannels.comfy.pullWorkflow, frameId),
-    saveLiveWorkflow: (frameId: string, workflow: unknown) =>
-      ipcRenderer.invoke(IpcChannels.comfy.saveLiveWorkflow, frameId, workflow),
+    saveLiveWorkflow: (frameId: string, workflow: unknown, intent?: string) =>
+      ipcRenderer.invoke(IpcChannels.comfy.saveLiveWorkflow, frameId, workflow, intent),
     pushWorkflow: (frameId: string) => ipcRenderer.invoke(IpcChannels.comfy.pushWorkflow, frameId),
     pullLatest: (frameId: string) => ipcRenderer.invoke(IpcChannels.comfy.pullLatest, frameId),
     latestRun: () => ipcRenderer.invoke(IpcChannels.comfy.latestRun),
@@ -165,4 +165,4 @@ function subscribe<T>(channel: string, callback: (payload: T) => void): () => vo
   return () => ipcRenderer.removeListener(channel, listener)
 }
 
-contextBridge.exposeInMainWorld('storyline', api)
+contextBridge.exposeInMainWorld('inlineStudio', api)

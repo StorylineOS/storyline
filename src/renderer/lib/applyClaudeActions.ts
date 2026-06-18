@@ -85,7 +85,7 @@ export async function applyClaudeActions(
     return { x: px, y: py, w, h }
   }
 
-  const mb = window.storyline.moodboard
+  const mb = window.inlineStudio.moodboard
   const unwrap = <T>(res: { ok: true; value: T } | { ok: false; error: string }): T => {
     if (!res.ok) throw new Error(res.error)
     return res.value
@@ -126,7 +126,7 @@ export async function applyClaudeActions(
         await placeInLayer(a.ref, item, a.layerRef, a.x, a.y)
         if (!a.layerRef) solidById.set(item.id, s)
         if (a.name && item.frameId)
-          unwrap(await window.storyline.frames.rename(item.frameId, a.name))
+          unwrap(await window.inlineStudio.frames.rename(item.frameId, a.name))
         break
       }
       case 'addLayer': {
@@ -205,7 +205,7 @@ export async function applyClaudeActions(
           remember(a.itemRef, unwrap(await mb.updateItem(target.id, patch)))
         // Renaming a frame edits the Frame entity, not the node's data.
         if (target.type === 'frame' && a.name && target.frameId) {
-          unwrap(await window.storyline.frames.rename(target.frameId, a.name))
+          unwrap(await window.inlineStudio.frames.rename(target.frameId, a.name))
         }
         break
       }
@@ -223,7 +223,10 @@ export async function applyClaudeActions(
       }
       case 'renameFrame': {
         unwrap(
-          await window.storyline.frames.rename(record(a.frameRef)?.frameId ?? a.frameRef, a.name),
+          await window.inlineStudio.frames.rename(
+            record(a.frameRef)?.frameId ?? a.frameRef,
+            a.name,
+          ),
         )
         break
       }
@@ -244,9 +247,9 @@ export async function applyClaudeActions(
       case 'suggestWorkflow': {
         const fid = record(a.frameRef)?.frameId ?? a.frameRef
         // Link (seeds + uploads inputs) and push the starter graph into the saved file.
-        const linked = unwrap(await window.storyline.comfy.linkFrame(fid))
+        const linked = unwrap(await window.inlineStudio.comfy.linkFrame(fid))
         if (a.starterGraph) {
-          unwrap(await window.storyline.comfy.saveLiveWorkflow(fid, a.starterGraph))
+          unwrap(await window.inlineStudio.comfy.saveLiveWorkflow(fid, a.starterGraph, a.guidance))
         }
         // Drive the UI to the Generate tab and open THIS frame's workflow live — the
         // embedded ComfyUI waits for init then loads the saved file (with the starter

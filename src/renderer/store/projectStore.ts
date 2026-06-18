@@ -25,17 +25,17 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   error: null,
 
   loadRecents: async () => {
-    const res = await window.storyline.project.listRecent()
+    const res = await window.inlineStudio.project.listRecent()
     if (res.ok) set({ recents: res.value })
   },
 
   createProject: async (name: string) => {
     set({ loading: true, error: null })
-    const dir = await window.storyline.dialog.pickDirectory()
+    const dir = await window.inlineStudio.dialog.pickDirectory()
     if (!dir.ok) return set({ loading: false, error: dir.error })
     if (dir.value === null) return set({ loading: false })
 
-    const res = await window.storyline.project.create({ name, parentDir: dir.value })
+    const res = await window.inlineStudio.project.create({ name, parentDir: dir.value })
     if (!res.ok) return set({ loading: false, error: res.error })
     set({ current: res.value, loading: false })
     void get().loadRecents()
@@ -43,7 +43,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   openFromDialog: async () => {
     set({ loading: true, error: null })
-    const res = await window.storyline.project.openDialog()
+    const res = await window.inlineStudio.project.openDialog()
     if (!res.ok) return set({ loading: false, error: res.error })
     if (res.value === null) return set({ loading: false })
     set({ current: res.value, loading: false })
@@ -52,7 +52,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   openByPath: async (path: string) => {
     set({ loading: true, error: null })
-    const res = await window.storyline.project.open(path)
+    const res = await window.inlineStudio.project.open(path)
     if (!res.ok) return set({ loading: false, error: res.error })
     set({ current: res.value, loading: false })
     void get().loadRecents()

@@ -48,7 +48,7 @@ export function CanvasToolbar({
         title={open ? 'Close' : 'Add to canvas'}
         aria-label={open ? 'Close' : 'Add to canvas'}
         aria-expanded={open}
-        className="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-white shadow-lg hover:brightness-110"
+        className="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-panel shadow-lg hover:brightness-110"
       >
         <svg
           viewBox="0 0 24 24"

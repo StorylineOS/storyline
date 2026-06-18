@@ -1,8 +1,8 @@
 {
-  "name": "storyline",
+  "name": "inline-studio",
   "version": "1.0.2",
   "description": "Narrative-first desktop frontend for filmmakers, using ComfyUI as an open generative render-farm.",
-  "author": "Storyline",
+  "author": "Inline Studio",
   "license": "MIT",
   "main": "./out/main/index.cjs",
   "type": "module",

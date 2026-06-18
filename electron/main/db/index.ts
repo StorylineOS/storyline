@@ -10,7 +10,7 @@ import { applySchema } from './schema'
 let connection: BetterSqlite3.Database | null = null
 let openPath: string | null = null
 
-/** Open (creating if needed) the `project.db` inside a `.storyline` folder. */
+/** Open (creating if needed) the `project.db` inside a `.inlinestudio` folder. */
 export function openProjectDb(projectFolder: string): BetterSqlite3.Database {
   closeProjectDb()
   const dbPath = join(projectFolder, 'project.db')

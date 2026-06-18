@@ -1,7 +1,7 @@
 /**
  * Library state: the open project's folders + assets, the folder the user is
  * currently browsing, and the selected asset (shown in Preview). Work happens in
- * main via window.storyline.assets / window.storyline.folders.
+ * main via window.inlineStudio.assets / window.inlineStudio.folders.
  */
 import { create } from 'zustand'
 import type { Asset, AssetFolder } from '@shared/types'
@@ -38,8 +38,8 @@ export const useAssetStore = create<AssetState>((set, get) => ({
     set({ loading: true, error: null })
     try {
       const [foldersRes, assetsRes] = await Promise.all([
-        window.storyline.folders.list(),
-        window.storyline.assets.list(),
+        window.inlineStudio.folders.list(),
+        window.inlineStudio.assets.list(),
       ])
       if (!foldersRes.ok) return set({ loading: false, error: foldersRes.error })
       if (!assetsRes.ok) return set({ loading: false, error: assetsRes.error })
@@ -52,7 +52,7 @@ export const useAssetStore = create<AssetState>((set, get) => ({
   import: async () => {
     set({ loading: true, error: null })
     try {
-      const res = await window.storyline.assets.importDialog(get().currentFolderId)
+      const res = await window.inlineStudio.assets.importDialog(get().currentFolderId)
       if (!res.ok) return set({ loading: false, error: res.error })
       const added = res.value
       set((s) => ({
@@ -68,7 +68,7 @@ export const useAssetStore = create<AssetState>((set, get) => ({
   remove: async (assetId: string) => {
     set({ error: null })
     try {
-      const res = await window.storyline.assets.delete(assetId)
+      const res = await window.inlineStudio.assets.delete(assetId)
       if (!res.ok) return set({ error: res.error })
       set((s) => ({
         assets: s.assets.filter((a) => a.id !== assetId),
@@ -82,7 +82,7 @@ export const useAssetStore = create<AssetState>((set, get) => ({
   createFolder: async (name: string) => {
     set({ error: null })
     try {
-      const res = await window.storyline.folders.create({
+      const res = await window.inlineStudio.folders.create({
         name,
         parentId: get().currentFolderId,
       })
@@ -96,7 +96,7 @@ export const useAssetStore = create<AssetState>((set, get) => ({
   deleteFolder: async (id: string) => {
     set({ error: null })
     try {
-      const res = await window.storyline.folders.delete(id)
+      const res = await window.inlineStudio.folders.delete(id)
       if (!res.ok) return set({ error: res.error })
       // Reload so reparented assets/subfolders reflect the new structure.
       await get().load()
@@ -115,7 +115,7 @@ export const useAssetStore = create<AssetState>((set, get) => ({
 
 // Main pushes this when a background job finishes (e.g. a video poster or playable
 // transcode is ready) — refresh the library so the new media shows up.
-window.storyline.events.onLibraryChanged(() => {
+window.inlineStudio.events.onLibraryChanged(() => {
   void useAssetStore.getState().load()
 })
 

@@ -9,7 +9,7 @@ export default {
         panel: '#16171b',
         surface: '#1d1f24',
         border: '#2a2d34',
-        accent: '#6366f1',
+        accent: '#DCE775',
       },
     },
   },

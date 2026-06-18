@@ -1,7 +1,7 @@
-# Creator task: build a 20-second story using Storyline
+# Creator task: build a 20-second story using Inline Studio
 
-Use Storyline to plan, generate, and curate the shots of a short story, then share us your experience about storyline.
-This is a real production exercise. We want to see Storyline used end to end on an actual story, and learn whether it genuinely helps you plan, design and execute a production pipeline, and what we should build next.
+Use Inline Studio to plan, generate, and curate the shots of a short story, then share us your experience about Inline Studio.
+This is a real production exercise. We want to see Inline Studio used end to end on an actual story, and learn whether it genuinely helps you plan, design and execute a production pipeline, and what we should build next.
 
 ## The brief
 
@@ -9,7 +9,7 @@ Make a roughly 20-second video story with multiple shots (4 to 8 is a good range
 
 ## Setup
 
-Storyline runs on your machine and uses your own ComfyUI for generation. Full setup lives in the README:
+Inline Studio runs on your machine and uses your own ComfyUI for generation. Full setup lives in the README:
 
 - Install and run the app: see [README, Getting started](README.md#getting-started).
 - Connect ComfyUI (local GPU or cloud): see [README, Bring your own ComfyUI](README.md#bring-your-own-comfyui).
@@ -29,10 +29,10 @@ This is a guide, not a rulebook. Work however feels natural and note where it do
 4. Generate a few takes per shot and star the hero (the take you want to keep).
 5. Chain shots where it helps: wire a Preview's output into the next shot's input so a look or character carries forward.
 6. Bring audio in as a reference for timing and mood.
-7. Export the shots folder from Storyline (numbered hero takes, in order).
+7. Export the shots folder from Inline Studio (numbered hero takes, in order).
 8. Combine the shots and add audio in your editor of choice (DaVinci Resolve, Premiere, CapCut, etc.) to render the final 20-second video.
 
-Note: Storyline does not stitch a combined video or mix audio yet, so step 8 is external by design. How that hand-off feels is exactly the kind of thing we want to hear about.
+Note: Inline Studio does not stitch a combined video or mix audio yet, so step 8 is external by design. How that hand-off feels is exactly the kind of thing we want to hear about.
 
 ## Deliverables
 
@@ -45,7 +45,7 @@ Note: Storyline does not stitch a combined video or mix audio yet, so step 8 is 
 Copy this into your Google Doc and fill it in. Be candid. Negative feedback is just as useful as positive.
 
 ```
-Storyline creator task feedback
+Inline Studio creator task feedback
 
 Name / handle:
 Date:
@@ -56,9 +56,9 @@ Links: [screenshots] [final video]
 
 2. What should we improve? What got in your way?
 
-3. What other features would make Storyline more useful to you?
+3. What other features would make Inline Studio more useful to you?
 
-4. Did Storyline genuinely help you plan or design your production pipeline? Why or why not?
+4. Did Inline Studio genuinely help you plan or design your production pipeline? Why or why not?
 
 5. Where did it slow you down, or where did you drop out to other tools (and which tools)?
 

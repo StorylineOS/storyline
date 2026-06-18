@@ -1,19 +1,27 @@
 /**
- * Project lifecycle: create/open a `.storyline` folder and load its DB.
+ * Project lifecycle: create/open a `.inlinestudio` folder and load its DB.
  *
  * A project on disk is a portable folder:
- *   MyFilm.storyline/
+ *   MyFilm.inlinestudio/
  *     project.db   assets/   takes/   thumbs/
  */
 import { join } from 'node:path'
-import { mkdirSync, existsSync, readdirSync } from 'node:fs'
+import { mkdirSync, existsSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
 import type { Project } from '@shared/types'
 import { openProjectDb, getDb } from '../db'
 import { recordRecent } from './recents'
 import { backfillVideoAssets } from '../assets/store'
 
-const PROJECT_EXT = '.storyline'
+/** Extension for newly-created projects. */
+const PROJECT_EXT = '.inlinestudio'
+/** Also openable for backward compatibility (projects from when the app was "Storyline"). */
+const LEGACY_PROJECT_EXTS = ['.storyline']
+/** All folder extensions recognised as a project (new + legacy). */
+const PROJECT_EXTS = [PROJECT_EXT, ...LEGACY_PROJECT_EXTS]
+
+const isProjectExt = (folder: string): boolean => PROJECT_EXTS.some((ext) => folder.endsWith(ext))
+
 const SUBDIRS = ['assets', 'takes', 'thumbs']
 
 let currentProject: Project | null = null
@@ -74,11 +82,13 @@ export function createProject(input: { name: string; parentDir: string }): Proje
 }
 
 export function openProject(folder: string): Project {
-  if (!folder.endsWith(PROJECT_EXT)) {
-    throw new Error('Not a Storyline project folder.')
+  // Accept legacy `.storyline` folders too, but trust a valid project.db over the
+  // extension — a hand-renamed or differently-named folder with a project.db still opens.
+  if (!isProjectExt(folder) && !existsSync(join(folder, 'project.db'))) {
+    throw new Error('Not an Inline Studio project folder.')
   }
   if (!existsSync(join(folder, 'project.db'))) {
-    throw new Error('That folder is not a valid Storyline project (no project.db).')
+    throw new Error('That folder is not a valid Inline Studio project (no project.db).')
   }
   openProjectDb(folder)
   // Make sure media subdirs exist even for hand-copied projects.
@@ -94,14 +104,14 @@ export function openProject(folder: string): Project {
   return project
 }
 
-/** Heuristic for the open dialog: is this dir a Storyline project? */
+/**
+ * Heuristic for the open dialog: is this dir an Inline Studio project? A valid
+ * `project.db` is the real signal, so this also accepts legacy `.storyline` folders and
+ * folders renamed away from the `.inlinestudio` extension.
+ */
 export function isProjectFolder(folder: string): boolean {
   try {
-    return (
-      folder.endsWith(PROJECT_EXT) &&
-      existsSync(join(folder, 'project.db')) &&
-      readdirSync(folder).length > 0
-    )
+    return existsSync(join(folder, 'project.db'))
   } catch {
     return false
   }

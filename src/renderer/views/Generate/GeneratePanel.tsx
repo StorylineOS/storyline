@@ -74,7 +74,7 @@ function openWorkflowScript(name: string): string {
           else store.activeWorkflow = wf;
           return 'switched';
         }
-        // 1c) Not open yet. Make sure the store knows the file Storyline just pushed
+        // 1c) Not open yet. Make sure the store knows the file Inline Studio just pushed
         // (else getWorkflowByPath misses it and we'd open a throwaway Unsaved tab that
         // future opens can't match — the duplicate-tab loop), then open the SAVED file.
         for (const m of ['syncWorkflows','loadWorkflows','reloadWorkflows','refreshWorkflows']) {
@@ -84,7 +84,7 @@ function openWorkflowScript(name: string): string {
         if (!wf && Array.isArray(store.workflows)) wf = store.workflows.find(matches);
         if (wf && typeof store.openWorkflow === 'function') { await store.openWorkflow(wf); return 'opened'; }
       }
-    } catch (e) { console.error('[storyline] store open failed', e); }
+    } catch (e) { console.error('[inlinestudio] store open failed', e); }
 
     // 2) Fallback: switch to a matching open tab via the workflow manager if there is
     // one; else load the graph (opens as an Unsaved Workflow).
@@ -98,13 +98,13 @@ function openWorkflowScript(name: string): string {
           if (already.load) { already.load(); return 'switched'; }
         }
       }
-    } catch (e) { console.error('[storyline] tab switch failed', e); }
+    } catch (e) { console.error('[inlinestudio] tab switch failed', e); }
     try {
       if (window.app && typeof window.app.loadGraphData === 'function') {
         const res = await fetch('/userdata/' + encodeURIComponent(path));
         if (res.ok) { window.app.loadGraphData(await res.json(), true, true, ${n}); return 'loaded'; }
       }
-    } catch (e) { console.error('[storyline] loadGraphData failed', e); }
+    } catch (e) { console.error('[inlinestudio] loadGraphData failed', e); }
     return 'failed';
   })();`
 }
@@ -148,25 +148,25 @@ function serializeActiveWorkflowScript(): string {
 
 /**
  * Reduce an active workflow's path/name (e.g. "workflows/18 <id>.json" or "18 <id>") to
- * the bare workflow name Storyline stores as `comfyWorkflowName`, for tab→frame mapping.
+ * the bare workflow name Inline Studio stores as `comfyWorkflowName`, for tab→frame mapping.
  */
 function activeWorkflowBaseName(path: string): string {
   return path.replace(/^.*\//, '').replace(/\.json$/i, '')
 }
 
 /** Marker the in-page save hook logs; the host listens for it on `console-message`. */
-const WF_SAVED_MARKER = '[storyline:wf-saved]'
+const WF_SAVED_MARKER = '[inlinestudio:wf-saved]'
 
 /**
  * Injected once into the ComfyUI page: monkeypatch the API's `storeUserData` so that
- * (1) saving a Storyline workflow always passes `overwrite: true` — ComfyUI otherwise
- * POSTs new workflows with overwrite=false and the server 409s because Storyline has
+ * (1) saving a Inline Studio workflow always passes `overwrite: true` — ComfyUI otherwise
+ * POSTs new workflows with overwrite=false and the server 409s because Inline Studio has
  * already pushed that file; and (2) after a save it logs a marker the host catches to
- * pull the JSON back into Storyline's durable copy. Idempotent.
+ * pull the JSON back into Inline Studio's durable copy. Idempotent.
  */
 function saveHookScript(): string {
   return `(() => {
-    if (window.__storylineSaveHook) return 'already';
+    if (window.__inlineStudioSaveHook) return 'already';
     const findApi = () => {
       if (window.app && window.app.api && typeof window.app.api.storeUserData === 'function') return window.app.api;
       const reg = window.comfyAPI || {};
@@ -189,7 +189,7 @@ function saveHookScript(): string {
       try { if (isWorkflow) console.log('${WF_SAVED_MARKER} ' + file); } catch (e) {}
       return r;
     };
-    window.__storylineSaveHook = true;
+    window.__inlineStudioSaveHook = true;
     return 'hooked';
   })();`
 }
@@ -245,7 +245,7 @@ export function GeneratePanel(): React.JSX.Element {
 
   // Capture the live graph of the CURRENTLY ACTIVE ComfyUI tab into the frame it
   // belongs to — the core "forgot to Save" fix, made tab-safe. We attribute the graph
-  // by the active workflow's name (not the frame Storyline last opened), so closing a
+  // by the active workflow's name (not the frame Inline Studio last opened), so closing a
   // tab — which switches ComfyUI's active tab — can never write one frame's graph into
   // another. `hintFrameId` is used only for the saved-file fallback, which reads that
   // frame's own file and is therefore always safe.
@@ -283,7 +283,7 @@ export function GeneratePanel(): React.JSX.Element {
     let down = false
     let nextUrl = comfyUrl
     try {
-      const res = await window.storyline.comfy.status()
+      const res = await window.inlineStudio.comfy.status()
       if (res.ok) {
         nextUrl = res.value.url
         down = !res.value.running
@@ -327,7 +327,7 @@ export function GeneratePanel(): React.JSX.Element {
     let cancelled = false
     const poll = async (): Promise<void> => {
       try {
-        const res = await window.storyline.comfy.latestRun()
+        const res = await window.inlineStudio.comfy.latestRun()
         if (cancelled || !res.ok || !res.value) return
         const latest = res.value
         if (seenPromptId.current === null) {
@@ -381,7 +381,7 @@ export function GeneratePanel(): React.JSX.Element {
   }, [webviewReady, linkedWorkflow, activeFrameId, captureLiveWorkflow, setLinkedWorkflow])
 
   // Install the save hook and listen for its marker: when the user saves a workflow
-  // inside ComfyUI, pull the JSON back into Storyline's durable copy. The marker's
+  // inside ComfyUI, pull the JSON back into Inline Studio's durable copy. The marker's
   // path identifies which frame's workflow was saved (fallback: the active frame).
   useEffect(() => {
     const wv = webviewRef.current
@@ -584,7 +584,7 @@ function CaptureTile({
         {captured ? '✓ Captured' : 'Update frame output'}
       </button>
       {captured && (
-        <span className="absolute right-1 top-1 rounded bg-accent px-1 text-[9px] text-white">
+        <span className="absolute right-1 top-1 rounded bg-accent px-1 text-[9px] text-panel">
           ✓
         </span>
       )}

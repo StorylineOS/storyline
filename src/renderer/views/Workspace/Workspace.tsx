@@ -11,7 +11,7 @@ import { MoodboardPanel } from '../Moodboard/MoodboardPanel'
 import { GeneratePanel } from '../Generate/GeneratePanel'
 import { AssistantPanel } from '../Assistant/AssistantPanel'
 
-/** The main shell: a node canvas ("Storyline") plus the embedded ComfyUI Generate tab. */
+/** The main shell: a node canvas ("Inline Studio") plus the embedded ComfyUI Generate tab. */
 export function Workspace({ project }: { project: Project }): React.JSX.Element {
   const mode = useUiStore((s) => s.mode)
   const setMode = useUiStore((s) => s.setMode)
@@ -63,7 +63,7 @@ export function Workspace({ project }: { project: Project }): React.JSX.Element 
             className="-m-1 flex items-center gap-2.5 rounded p-1 transition-opacity hover:opacity-75"
           >
             <Logo size={26} />
-            <span className="text-sm font-semibold text-white">Storyline</span>
+            <span className="text-sm font-semibold text-white">Inline Studio</span>
           </button>
           <span className="text-zinc-600">/</span>
           <span className="text-sm text-zinc-300">{project.name}</span>
@@ -125,7 +125,7 @@ function ModeToggle({
   onChange: (m: WorkspaceMode) => void
 }): React.JSX.Element {
   const labels: Record<WorkspaceMode, string> = {
-    moodboard: 'Storyline',
+    moodboard: 'Inline Studio',
     generate: 'Generate',
   }
   return (
@@ -135,7 +135,7 @@ function ModeToggle({
           key={m}
           onClick={() => onChange(m)}
           className={`rounded px-3 py-1 ${
-            mode === m ? 'bg-accent text-white' : 'text-zinc-400 hover:text-zinc-200'
+            mode === m ? 'bg-accent text-panel' : 'text-zinc-400 hover:text-zinc-200'
           }`}
         >
           {labels[m]}

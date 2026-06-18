@@ -68,7 +68,7 @@ interface ClaudeState {
 }
 
 /** Persist the chosen model across sessions (validated against the known models on load). */
-const MODEL_KEY = 'storyline.claudeModel'
+const MODEL_KEY = 'inlineStudio.claudeModel'
 function loadModel(): string {
   try {
     const saved = localStorage.getItem(MODEL_KEY)
@@ -111,7 +111,7 @@ async function buildContext(attachments: ClaudeContextAttachment[]): Promise<Cla
 
   let comfyReachable = false
   try {
-    const res = await window.storyline.comfy.status()
+    const res = await window.inlineStudio.comfy.status()
     comfyReachable = res.ok && res.value.running
   } catch {
     comfyReachable = false
@@ -172,7 +172,7 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
 
   loadStatus: async () => {
     try {
-      const res = await window.storyline.claude.status()
+      const res = await window.inlineStudio.claude.status()
       if (res.ok) set({ status: res.value })
     } catch (e) {
       set({ error: ipcErrorMessage(e) })
@@ -182,7 +182,7 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
   setApiKey: async (key) => {
     set({ busy: true, error: null })
     try {
-      const res = await window.storyline.claude.setApiKey(key)
+      const res = await window.inlineStudio.claude.setApiKey(key)
       if (!res.ok) {
         set({ error: res.error, busy: false })
         return false
@@ -197,7 +197,7 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
 
   clearApiKey: async () => {
     try {
-      const res = await window.storyline.claude.clearApiKey()
+      const res = await window.inlineStudio.claude.clearApiKey()
       if (res.ok) set({ status: res.value, error: null })
     } catch (e) {
       set({ error: ipcErrorMessage(e) })
@@ -216,14 +216,14 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
   init: () => {
     if (get().initialized) return
     set({ initialized: true })
-    window.storyline.events.onClaudeDelta((e) => {
+    window.inlineStudio.events.onClaudeDelta((e) => {
       if (e.turnId !== get().turnId) return
       set((s) => ({ streamingText: (s.streamingText ?? '') + e.text }))
     })
-    window.storyline.events.onClaudeProposal((p) => {
+    window.inlineStudio.events.onClaudeProposal((p) => {
       set((s) => ({ proposals: [...s.proposals, p] }))
     })
-    window.storyline.events.onClaudeDone((e) => {
+    window.inlineStudio.events.onClaudeDone((e) => {
       if (e.turnId !== get().turnId) return
       // Prefer the authoritative full text from main over the live-accumulated deltas,
       // so a dropped/late delta can't leave the committed message truncated.
@@ -235,7 +235,7 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
         turnId: null,
       }))
     })
-    window.storyline.events.onClaudeError((e) => {
+    window.inlineStudio.events.onClaudeError((e) => {
       if (e.turnId !== get().turnId) return
       set({ error: e.error, streamingText: null, sending: false, turnId: null })
     })
@@ -251,7 +251,7 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
       const context = await buildContext(
         get().attachments.map((a) => ({ kind: a.kind, ids: a.ids, x: a.x, y: a.y })),
       )
-      const res = await window.storyline.claude.send({
+      const res = await window.inlineStudio.claude.send({
         turnId,
         model: get().model,
         messages,
@@ -264,7 +264,7 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
   },
 
   cancel: () => {
-    void window.storyline.claude.cancel()
+    void window.inlineStudio.claude.cancel()
   },
 
   applyProposal: async (id) => {

@@ -1,5 +1,5 @@
 /**
- * Encrypted storage for the user's Anthropic API key — the one secret Storyline holds.
+ * Encrypted storage for the user's Anthropic API key — the one secret Inline Studio holds.
  * It never goes in plaintext settings.json: it's encrypted with Electron `safeStorage`
  * (OS keychain-backed) and written to its own file under userData. The key lives only
  * in the main process and is never sent across the bridge to the renderer.
@@ -12,7 +12,7 @@ import { join } from 'node:path'
 import { readFileSync, writeFileSync, existsSync, rmSync } from 'node:fs'
 
 /** Prefix that marks an unencrypted fallback file, so reads know how to decode it. */
-const PLAINTEXT_MAGIC = Buffer.from('STORYLINE_PLAINTEXT_V1\n', 'utf-8')
+const PLAINTEXT_MAGIC = Buffer.from('INLINESTUDIO_PLAINTEXT_V1\n', 'utf-8')
 
 function keyFile(): string {
   return join(app.getPath('userData'), 'claude-credentials.bin')

@@ -19,6 +19,7 @@ import {
   frameInputAssetPaths,
 } from '../frames/store'
 import { getCurrentProject } from '../project/store'
+import { recordWorkflowMemory } from './workflowMemory'
 
 function baseUrl(): string {
   return getSettings().comfyUrl.replace(/\/+$/, '')
@@ -48,6 +49,119 @@ export async function ping(): Promise<ComfyStatus> {
   }
 }
 
+// ── Capability detection ──────────────────────────────────────────────────────
+// Claude authors much better workflows when it only references nodes and model files
+// that actually exist in THIS ComfyUI. `/object_info` is the source of truth: the full
+// node catalogue, with installed model filenames appearing as enum options on loader
+// widgets (ckpt_name, lora_name, vae_name, ...).
+
+/** A compact snapshot of what a ComfyUI install can do. */
+export interface ComfyCapabilities {
+  url: string
+  fetchedAt: number
+  /** Every available node type name. */
+  nodeTypes: string[]
+  /** Installed model files by category (checkpoints, loras, vae, controlnet, ...). */
+  models: Record<string, string[]>
+}
+
+/** Input/output schema for a single node type (for wiring sockets/widgets correctly). */
+export interface ComfyNodeSchema {
+  name: string
+  input: { required: Record<string, unknown>; optional: Record<string, unknown> }
+  output: string[]
+  outputNames: string[]
+}
+
+/** Loader widget name → model category. Tolerant: a category is simply absent if unused. */
+const MODEL_WIDGET_CATEGORIES: Record<string, string> = {
+  ckpt_name: 'checkpoints',
+  lora_name: 'loras',
+  vae_name: 'vae',
+  control_net_name: 'controlnet',
+  unet_name: 'unet',
+  clip_name: 'clip',
+  style_model_name: 'style_models',
+  gligen_name: 'gligen',
+  model_name: 'upscale_models',
+}
+
+interface RawObjectInfo {
+  [nodeType: string]: {
+    input?: { required?: Record<string, unknown>; optional?: Record<string, unknown> }
+    output?: unknown[]
+    output_name?: unknown
+  }
+}
+
+/** Short-lived cache of the raw /object_info so lookups don't refetch the large payload. */
+let rawObjectInfo: { url: string; data: RawObjectInfo } | null = null
+
+async function getObjectInfo(): Promise<RawObjectInfo> {
+  const url = baseUrl()
+  const ctrl = new AbortController()
+  // /object_info can be several MB and slow on a cold cloud box.
+  const timer = setTimeout(() => ctrl.abort(), 15000)
+  try {
+    const res = await fetch(`${url}/object_info`, { signal: ctrl.signal })
+    if (!res.ok) throw new Error(`ComfyUI /object_info returned ${res.status}. Is it running?`)
+    const data = (await res.json()) as RawObjectInfo
+    rawObjectInfo = { url, data }
+    return data
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/** Fetch + parse the full capability snapshot from the connected ComfyUI. */
+export async function fetchCapabilities(): Promise<ComfyCapabilities> {
+  const url = baseUrl()
+  const info = await getObjectInfo()
+  const nodeTypes = Object.keys(info).sort()
+  const models: Record<string, Set<string>> = {}
+  for (const node of Object.values(info)) {
+    const specs = { ...(node?.input?.required ?? {}), ...(node?.input?.optional ?? {}) }
+    for (const [widget, spec] of Object.entries(specs)) {
+      const category = MODEL_WIDGET_CATEGORIES[widget]
+      if (!category) continue
+      // Enum options are encoded as [ ["a.safetensors", ...], {config} ]; a scalar socket
+      // type like "MODEL" is NOT an enum, so only treat an array-of-options as model files.
+      const options = Array.isArray(spec) && Array.isArray(spec[0]) ? (spec[0] as unknown[]) : null
+      if (!options) continue
+      const set = (models[category] ??= new Set())
+      for (const o of options) if (typeof o === 'string') set.add(o)
+    }
+  }
+  const modelsOut: Record<string, string[]> = {}
+  for (const [k, v] of Object.entries(models)) modelsOut[k] = [...v].sort()
+  return { url, fetchedAt: Date.now(), nodeTypes, models: modelsOut }
+}
+
+/** Return the input/output schema for the named node types (skips unknown names). */
+export async function lookupNodeSchemas(names: string[]): Promise<ComfyNodeSchema[]> {
+  const info =
+    rawObjectInfo && rawObjectInfo.url === baseUrl() ? rawObjectInfo.data : await getObjectInfo()
+  const out: ComfyNodeSchema[] = []
+  for (const name of names) {
+    const node = info[name]
+    if (!node) continue
+    out.push({
+      name,
+      input: { required: node.input?.required ?? {}, optional: node.input?.optional ?? {} },
+      output: Array.isArray(node.output) ? node.output.map((o) => String(o)) : [],
+      outputNames: Array.isArray(node.output_name) ? (node.output_name as string[]) : [],
+    })
+  }
+  return out
+}
+
+/** The set of available node type names (cached snapshot), for validation. */
+export async function availableNodeTypes(): Promise<Set<string>> {
+  const info =
+    rawObjectInfo && rawObjectInfo.url === baseUrl() ? rawObjectInfo.data : await getObjectInfo()
+  return new Set(Object.keys(info))
+}
+
 function sanitizeSegment(name: string): string {
   // Keep only characters that survive ComfyUI's userdata path + workflow-store lookup
   // unchanged. Apostrophes, parentheses, slashes, etc. get encoded differently and
@@ -69,7 +183,7 @@ function sanitizeSegment(name: string): string {
 function buildSeedWorkflow(frameName: string, inputFileNames: string[]): unknown {
   const inputsLine = inputFileNames.length > 0 ? `\nInputs:\n  ${inputFileNames.join('\n  ')}` : ''
   const noteText =
-    `Storyline frame: ${frameName}` +
+    `Inline Studio frame: ${frameName}` +
     inputsLine +
     `\n\nBuild this frame's workflow here, then Save (the link persists).`
   const nodes: unknown[] = [
@@ -122,7 +236,7 @@ function buildSeedWorkflow(frameName: string, inputFileNames: string[]): unknown
 }
 
 // ── Durable workflow storage ────────────────────────────────────────────────
-// Storyline owns the canonical copy of each frame's workflow at
+// Inline Studio owns the canonical copy of each frame's workflow at
 // <project>/workflows/<frameId>.json, so switching ComfyUI installs (e.g. an
 // ephemeral cloud box) never loses it. ComfyUI holds a working copy under
 // /userdata/workflows/<name>.json; we push our copy to it and pull edits back.
@@ -131,7 +245,7 @@ function workflowNameFor(frame: Frame): string {
   const project = getCurrentProject()
   const projectSeg = sanitizeSegment(project?.name ?? 'Project')
   const frameSeg = sanitizeSegment(frame.name)
-  return `Storyline/${projectSeg}/${frameSeg} ${frame.id.slice(0, 6)}`
+  return `Inline Studio/${projectSeg}/${frameSeg} ${frame.id.slice(0, 6)}`
 }
 
 function localWorkflowPath(frameId: string): string {
@@ -276,7 +390,7 @@ function isBuiltWorkflow(workflow: unknown): boolean {
 }
 
 /**
- * Link/open a frame's ComfyUI workflow, with Storyline as the durable source of
+ * Link/open a frame's ComfyUI workflow, with Inline Studio as the durable source of
  * truth: if we have a local copy, push it to the connected ComfyUI (restores it
  * after an install switch); else adopt ComfyUI's copy if present; else seed a new
  * one. The frame's workflow name is persisted on first link.
@@ -329,11 +443,15 @@ export async function pullWorkflowToProject(frameId: string): Promise<boolean> {
  * Capture the LIVE (possibly unsaved) graph the renderer serialized straight off the
  * ComfyUI canvas into the frame's durable copy, and mirror it to ComfyUI's saved file
  * so the named tab and our copy stay in sync. This is what makes "forgot to press Save"
- * non-destructive — Storyline owns the graph regardless of ComfyUI's own save action.
+ * non-destructive — Inline Studio owns the graph regardless of ComfyUI's own save action.
  * Ignores blank/non-workflow payloads. Returns the updated frame if anything changed,
  * else null.
  */
-export async function saveLiveWorkflow(frameId: string, workflow: unknown): Promise<Frame | null> {
+export async function saveLiveWorkflow(
+  frameId: string,
+  workflow: unknown,
+  intent?: string,
+): Promise<Frame | null> {
   const frame = getFrameById(frameId)
   if (!frame.comfyWorkflowName) return null
   if (!isMeaningfulWorkflow(workflow)) return null
@@ -354,7 +472,36 @@ export async function saveLiveWorkflow(frameId: string, workflow: unknown): Prom
       // ignore — comfy momentarily unreachable; the project copy is already saved
     }
   }
-  return becameReady ? setWorkflowReady(frameId, true) : getFrameById(frameId)
+  if (becameReady) {
+    // The workflow just became built — remember it so Claude can recall/adapt it later.
+    const { nodeTypes, modelsUsed } = summarizeGraph(workflow)
+    recordWorkflowMemory({
+      intent: intent?.trim() || frame.name,
+      frameName: frame.name,
+      nodeTypes,
+      modelsUsed,
+      graph: workflow,
+    })
+    return setWorkflowReady(frameId, true)
+  }
+  return getFrameById(frameId)
+}
+
+/** Distinct node types + model filenames in a graph, for usage memory. */
+function summarizeGraph(workflow: unknown): { nodeTypes: string[]; modelsUsed: string[] } {
+  const nodes = workflowNodes(workflow) ?? []
+  const types = new Set<string>()
+  const models = new Set<string>()
+  const isModelFile = /\.(safetensors|ckpt|pt|pth|bin|gguf|sft)$/i
+  for (const n of nodes) {
+    const t = (n as { type?: unknown }).type
+    if (typeof t === 'string') types.add(t)
+    const wv = (n as { widgets_values?: unknown }).widgets_values
+    if (Array.isArray(wv)) {
+      for (const v of wv) if (typeof v === 'string' && isModelFile.test(v)) models.add(v)
+    }
+  }
+  return { nodeTypes: [...types], modelsUsed: [...models] }
 }
 
 /** Push the project's copy of the frame's workflow to ComfyUI. */

@@ -7,6 +7,43 @@
 import type Anthropic from '@anthropic-ai/sdk'
 import type { ClaudeAction } from '@shared/claudeActions'
 
+/** Read-only: the user's installed ComfyUI node types + model files. */
+export const GET_CAPABILITIES_TOOL: Anthropic.Tool = {
+  name: 'get_comfy_capabilities',
+  description:
+    "Return the user's installed ComfyUI node type names and model files by category " +
+    '(checkpoints, loras, vae, controlnet, upscale_models, ...). Call this BEFORE authoring any ' +
+    'workflow so you only reference nodes and model filenames that actually exist. Returns names ' +
+    'only — use lookup_comfy_nodes for a node’s input/output schema.',
+  input_schema: { type: 'object', properties: {}, required: [] },
+}
+
+/** Read-only: input/output schema for specific node types. */
+export const LOOKUP_NODES_TOOL: Anthropic.Tool = {
+  name: 'lookup_comfy_nodes',
+  description:
+    'Return the exact input/output schema for the named ComfyUI node types so you wire sockets ' +
+    'and widgets correctly. Pass only the handful of node types you intend to use.',
+  input_schema: {
+    type: 'object',
+    properties: { names: { type: 'array', items: { type: 'string' } } },
+    required: ['names'],
+  },
+}
+
+/** Read-only: past workflows that worked for similar frame intents (usage memory). */
+export const RECALL_WORKFLOWS_TOOL: Anthropic.Tool = {
+  name: 'recall_workflows',
+  description:
+    'Return past ComfyUI workflows that worked for similar frame intents in this project. Call ' +
+    'this before authoring a workflow; if a past graph matches, adapt it instead of starting blank.',
+  input_schema: {
+    type: 'object',
+    properties: { intent: { type: 'string', description: 'What the new frame/workflow is for.' } },
+    required: ['intent'],
+  },
+}
+
 export const PROPOSE_TOOL: Anthropic.Tool = {
   name: 'propose_actions',
   description: `Propose a batch of canvas/design actions for the user to review and apply with one click.

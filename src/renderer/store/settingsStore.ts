@@ -15,7 +15,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
 
   load: async () => {
     try {
-      const res = await window.storyline.settings.get()
+      const res = await window.inlineStudio.settings.get()
       if (res.ok) set({ comfyUrl: res.value.comfyUrl })
     } catch (e) {
       set({ error: ipcErrorMessage(e) })
@@ -24,7 +24,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
 
   setComfyUrl: async (url) => {
     try {
-      const res = await window.storyline.settings.setComfyUrl(url)
+      const res = await window.inlineStudio.settings.setComfyUrl(url)
       if (!res.ok) return set({ error: res.error })
       set({ comfyUrl: res.value.comfyUrl, error: null })
     } catch (e) {

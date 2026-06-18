@@ -3,7 +3,7 @@
  *
  * - `IpcChannels` are the only channel strings allowed (no stringly-typed
  *   `invoke('something')` scattered around — see CLAUDE.md).
- * - `StorylineApi` is the exact surface exposed on `window.storyline` by the
+ * - `InlineStudioApi` is the exact surface exposed on `window.inlineStudio` by the
  *   preload. The renderer imports this type; the main process implements it.
  */
 import type {
@@ -154,17 +154,17 @@ export interface CreateFolderInput {
 }
 
 export interface CreateProjectInput {
-  /** Display name; also used to derive the `.storyline` folder name. */
+  /** Display name; also used to derive the `.inlinestudio` folder name. */
   name: string
-  /** Absolute parent directory the `.storyline` folder is created in. */
+  /** Absolute parent directory the `.inlinestudio` folder is created in. */
   parentDir: string
 }
 
-/** The API surface the preload exposes on `window.storyline`. */
-export interface StorylineApi {
+/** The API surface the preload exposes on `window.inlineStudio`. */
+export interface InlineStudioApi {
   project: {
     create(input: CreateProjectInput): Promise<Result<Project>>
-    /** Open a `.storyline` folder by absolute path. */
+    /** Open a `.inlinestudio` folder by absolute path. */
     open(path: string): Promise<Result<Project>>
     /** Show a native folder picker and open the chosen project. */
     openDialog(): Promise<Result<Project | null>>
@@ -244,7 +244,11 @@ export interface StorylineApi {
      * Capture the live (possibly unsaved) graph serialized off the ComfyUI canvas into
      * the project copy. Returns the updated frame if anything changed, else null.
      */
-    saveLiveWorkflow(frameId: string, workflow: unknown): Promise<Result<Frame | null>>
+    saveLiveWorkflow(
+      frameId: string,
+      workflow: unknown,
+      intent?: string,
+    ): Promise<Result<Frame | null>>
     /** Push the project's copy of the frame's workflow to ComfyUI. */
     pushWorkflow(frameId: string): Promise<Result<void>>
     /** Pull ComfyUI's latest output and attach it to the frame as its Output take. */
@@ -326,6 +330,6 @@ export interface StorylineApi {
 
 declare global {
   interface Window {
-    storyline: StorylineApi
+    inlineStudio: InlineStudioApi
   }
 }

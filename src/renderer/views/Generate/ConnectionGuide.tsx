@@ -21,8 +21,8 @@ export function ConnectionGuide(): React.JSX.Element {
           <h2 className="text-sm font-semibold text-zinc-200">ComfyUI is not connected</h2>
         </div>
         <p className="mb-5 text-xs text-zinc-500">
-          Storyline renders every shot through your own ComfyUI. Pick how you want to run it, then
-          paste its address into the URL field above and press Save.
+          Inline Studio renders every shot through your own ComfyUI. Pick how you want to run it,
+          then paste its address into the URL field above and press Save.
         </p>
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -50,7 +50,7 @@ function LocalCard(): React.JSX.Element {
         <code className="rounded bg-black/40 px-1 text-[11px] text-accent">
           --enable-cors-header
         </code>{' '}
-        flag — it lets Storyline talk to ComfyUI and is needed for full compatibility.
+        flag — it lets Inline Studio talk to ComfyUI and is needed for full compatibility.
       </Step>
       <CopyBlock command="python main.py --enable-cors-header" />
       <Step n={2}>
@@ -102,7 +102,7 @@ function CloudCard(): React.JSX.Element {
 function VideoThumb({ videoId, href }: { videoId: string; href: string }): React.JSX.Element {
   return (
     <button
-      onClick={() => void window.storyline.shell.openExternal(href)}
+      onClick={() => void window.inlineStudio.shell.openExternal(href)}
       title="Watch the setup video on YouTube"
       className="group mt-0.5 overflow-hidden rounded-md border border-border hover:border-accent"
     >
@@ -196,7 +196,7 @@ function TemplateLink({
 }): React.JSX.Element {
   return (
     <button
-      onClick={() => void window.storyline.shell.openExternal(href)}
+      onClick={() => void window.inlineStudio.shell.openExternal(href)}
       className="group flex items-center justify-between gap-2 rounded-md border border-border bg-black/20 px-2.5 py-1.5 text-left hover:border-accent hover:bg-surface"
     >
       <span className="min-w-0">

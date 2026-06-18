@@ -9,7 +9,6 @@ import {
   useEdgesState,
   useReactFlow,
   useViewport,
-  getNodesBounds,
   applyNodeChanges,
   type Node,
   type Edge,
@@ -122,7 +121,7 @@ const FALLBACK_TEXT: TextItemData = {
   align: 'left',
 }
 
-/** The unified node canvas ("Storyline"): frames, layers, previews, and ideation items. */
+/** The unified node canvas ("Inline Studio"): frames, layers, previews, and ideation items. */
 export function MoodboardPanel(): React.JSX.Element {
   return (
     <ReactFlowProvider>
@@ -197,6 +196,18 @@ function Board(): React.JSX.Element {
   const onNodesChange = (changes: NodeChange<Node>[]): void => {
     setNodes((nds) => applyNodeChanges(changes, nds))
   }
+
+  // Mirror the canvas selection to the UI store so the assistant knows what's selected.
+  // Derived from the live nodes state (reflects clicks AND marquee), keyed so it only
+  // writes when the selected set actually changes.
+  const selectedKey = nodes
+    .filter((n) => n.selected)
+    .map((n) => n.id)
+    .sort()
+    .join(',')
+  useEffect(() => {
+    setCanvasSelection(selectedKey ? selectedKey.split(',') : [])
+  }, [selectedKey, setCanvasSelection])
 
   // Keyboard: copy (⌘/Ctrl-C), paste (⌘/Ctrl-V), undo (⌘/Ctrl-Z), redo (⌘/Ctrl-Shift-Z
   // or ⌘/Ctrl-Y). Delete is handled by React Flow's deleteKeyCode + onNodesDelete.
@@ -366,8 +377,7 @@ function Board(): React.JSX.Element {
           onNodesDelete={(deleted) => deleted.forEach((n) => void deleteItem(n.id))}
           onConnect={onConnect}
           onEdgesDelete={(deleted) => deleted.forEach((e) => void disconnect(e.id))}
-          // Mirror selection + viewport so the assistant can use them as context.
-          onSelectionChange={({ nodes: sel }) => setCanvasSelection(sel.map((n) => n.id))}
+          // Mirror the viewport so the assistant can use it as a "place here" spot.
           onMove={() => setCanvasCenter(centre())}
           onInit={() => setCanvasCenter(centre())}
           proOptions={{ hideAttribution: true }}
@@ -413,19 +423,34 @@ function Board(): React.JSX.Element {
  */
 function SelectionActions(): React.JSX.Element | null {
   const selection = useUiStore((s) => s.canvasSelection)
+  const items = useMoodboardStore((s) => s.items)
   const attachSelection = useClaudeStore((s) => s.attachSelection)
   const setAssistantOpen = useUiStore((s) => s.setAssistantOpen)
-  const { getNodes } = useReactFlow()
   const { x, y, zoom } = useViewport()
 
   if (selection.length === 0) return null
-  const nodes = getNodes().filter((n) => n.selected)
-  if (nodes.length === 0) return null
 
-  // Top-right corner of the selection bounds, in pane (wrapper) pixels.
-  const b = getNodesBounds(nodes)
-  const left = (b.x + b.width) * zoom + x
-  const top = b.y * zoom + y
+  // Top-right corner of the selection's bounding box, in absolute flow coords. Computed
+  // from our own item geometry (handles multi-select + nodes nested in a layer) rather
+  // than React Flow's measured bounds, which skew for nested/unmeasured nodes.
+  const byId = new Map(items.map((i) => [i.id, i]))
+  let minY = Infinity
+  let maxX = -Infinity
+  let found = false
+  for (const id of selection) {
+    const it = byId.get(id)
+    if (!it) continue
+    const parent = it.parentId ? byId.get(it.parentId) : undefined
+    const absX = parent ? parent.x + it.x : it.x
+    const absY = parent ? parent.y + it.y : it.y
+    minY = Math.min(minY, absY)
+    maxX = Math.max(maxX, absX + it.width)
+    found = true
+  }
+  if (!found) return null
+
+  const left = maxX * zoom + x
+  const top = minY * zoom + y
 
   return (
     <div

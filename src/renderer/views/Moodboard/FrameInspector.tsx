@@ -7,7 +7,7 @@ import { useAssetStore } from '../../store/assetStore'
 import { useSettingsStore } from '../../store/settingsStore'
 import { getAssetDragIds } from '../../lib/dnd'
 
-const INPUT_DND = 'application/x-storyline-frame-input'
+const INPUT_DND = 'application/x-inlinestudio-frame-input'
 
 /**
  * Right-side drawer to edit a frame: rename, clone, manage inputs (add via drop /
@@ -90,7 +90,7 @@ export function FrameInspector(): React.JSX.Element | null {
     const url = `${comfyUrl.replace(/\/+$/, '')}/userdata/${encodeURIComponent(
       `workflows/${frame.comfyWorkflowName}.json`,
     )}`
-    void window.storyline.shell.openExternal(url)
+    void window.inlineStudio.shell.openExternal(url)
   }
 
   return (
@@ -185,7 +185,7 @@ export function FrameInspector(): React.JSX.Element | null {
                       <Media url={mediaUrl(t.filePath)} kind={t.kind} />
                     </button>
                     {isHero && (
-                      <span className="absolute left-0.5 top-0.5 rounded bg-accent px-1 text-[8px] text-white">
+                      <span className="absolute left-0.5 top-0.5 rounded bg-accent px-1 text-[8px] text-panel">
                         Hero
                       </span>
                     )}
@@ -218,7 +218,7 @@ export function FrameInspector(): React.JSX.Element | null {
               <button
                 onClick={() => void onLinkOpen()}
                 disabled={busy}
-                className="rounded bg-accent px-2 py-1.5 text-xs font-medium text-white hover:brightness-110 disabled:opacity-40"
+                className="rounded bg-accent px-2 py-1.5 text-xs font-medium text-panel hover:brightness-110 disabled:opacity-40"
               >
                 {busy ? '…' : ready ? 'Edit in ComfyUI' : 'Build in ComfyUI'}
               </button>
@@ -239,7 +239,7 @@ export function FrameInspector(): React.JSX.Element | null {
             <button
               onClick={() => void onLinkOpen()}
               disabled={busy}
-              className="w-full rounded bg-accent px-2 py-1.5 text-xs font-medium text-white hover:brightness-110 disabled:opacity-40"
+              className="w-full rounded bg-accent px-2 py-1.5 text-xs font-medium text-panel hover:brightness-110 disabled:opacity-40"
             >
               {busy ? '…' : 'Link workflow'}
             </button>

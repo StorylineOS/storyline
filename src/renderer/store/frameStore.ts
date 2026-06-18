@@ -1,7 +1,7 @@
 /**
  * Frame timeline state: ordered frames, each with multiple inputs (library assets)
  * and multiple outputs (takes). The card shows compact stacks; the Frame Inspector
- * manages the full grids. Work happens in main via window.storyline.frames / .comfy.
+ * manages the full grids. Work happens in main via window.inlineStudio.frames / .comfy.
  */
 import { create } from 'zustand'
 import type { Frame, Take, FrameInput, ComfyOutput } from '@shared/types'
@@ -71,9 +71,9 @@ export const useFrameStore = create<FrameState>((set, get) => ({
     set({ loading: true, error: null })
     try {
       const [framesRes, inputsRes, takesRes] = await Promise.all([
-        window.storyline.frames.list(),
-        window.storyline.frames.listInputs(),
-        window.storyline.frames.listAllTakes(),
+        window.inlineStudio.frames.list(),
+        window.inlineStudio.frames.listInputs(),
+        window.inlineStudio.frames.listAllTakes(),
       ])
       if (!framesRes.ok) return set({ loading: false, error: framesRes.error })
       if (!inputsRes.ok) return set({ loading: false, error: inputsRes.error })
@@ -92,7 +92,7 @@ export const useFrameStore = create<FrameState>((set, get) => ({
   importAsFrames: async () => {
     set({ loading: true, error: null })
     try {
-      const res = await window.storyline.frames.importAsFrames()
+      const res = await window.inlineStudio.frames.importAsFrames()
       if (!res.ok) return set({ loading: false, error: res.error })
       await get().load() // refresh frames + their inputs
     } catch (e) {
@@ -103,7 +103,7 @@ export const useFrameStore = create<FrameState>((set, get) => ({
   addFromAssets: async (assetIds) => {
     try {
       for (const assetId of assetIds) {
-        const res = await window.storyline.frames.addFromAsset(assetId)
+        const res = await window.inlineStudio.frames.addFromAsset(assetId)
         if (!res.ok) return set({ error: res.error })
       }
       await get().load()
@@ -116,7 +116,7 @@ export const useFrameStore = create<FrameState>((set, get) => ({
     try {
       const added: FrameInput[] = []
       for (const assetId of assetIds) {
-        const res = await window.storyline.frames.addInput(frameId, assetId)
+        const res = await window.inlineStudio.frames.addInput(frameId, assetId)
         if (!res.ok) return set({ error: res.error })
         added.push(res.value)
       }
@@ -133,7 +133,7 @@ export const useFrameStore = create<FrameState>((set, get) => ({
 
   addSourceInput: async (frameId, sourceFrameId) => {
     try {
-      const res = await window.storyline.frames.addSourceInput(frameId, sourceFrameId)
+      const res = await window.inlineStudio.frames.addSourceInput(frameId, sourceFrameId)
       if (!res.ok) return set({ error: res.error })
       set((s) => {
         const existing = s.inputsByFrame[frameId] ?? []
@@ -147,7 +147,7 @@ export const useFrameStore = create<FrameState>((set, get) => ({
 
   removeInput: async (frameId, assetId) => {
     try {
-      const res = await window.storyline.frames.removeInput(frameId, assetId)
+      const res = await window.inlineStudio.frames.removeInput(frameId, assetId)
       if (!res.ok) return set({ error: res.error })
       set((s) => ({
         inputsByFrame: {
@@ -172,7 +172,7 @@ export const useFrameStore = create<FrameState>((set, get) => ({
       return { inputsByFrame: { ...s.inputsByFrame, [frameId]: next } }
     })
     try {
-      const res = await window.storyline.frames.reorderInputs(frameId, orderedAssetIds)
+      const res = await window.inlineStudio.frames.reorderInputs(frameId, orderedAssetIds)
       if (!res.ok) set({ error: res.error })
     } catch (e) {
       set({ error: ipcErrorMessage(e) })
@@ -184,7 +184,7 @@ export const useFrameStore = create<FrameState>((set, get) => ({
       frames: s.frames.map((sh) => (sh.id === frameId ? { ...sh, heroTakeId: takeId } : sh)),
     }))
     try {
-      const res = await window.storyline.frames.setHero(frameId, takeId)
+      const res = await window.inlineStudio.frames.setHero(frameId, takeId)
       if (!res.ok) set({ error: res.error })
     } catch (e) {
       set({ error: ipcErrorMessage(e) })
@@ -193,7 +193,7 @@ export const useFrameStore = create<FrameState>((set, get) => ({
 
   deleteTake: async (takeId) => {
     try {
-      const res = await window.storyline.frames.deleteTake(takeId)
+      const res = await window.inlineStudio.frames.deleteTake(takeId)
       if (!res.ok) return set({ error: res.error })
       set((s) => {
         const takesByFrame: Record<string, Take[]> = {}
@@ -215,7 +215,7 @@ export const useFrameStore = create<FrameState>((set, get) => ({
   linkFrame: async (id) => {
     set({ busyId: id, error: null })
     try {
-      const res = await window.storyline.comfy.linkFrame(id)
+      const res = await window.inlineStudio.comfy.linkFrame(id)
       if (!res.ok) {
         set({ error: res.error, busyId: null })
         return null
@@ -231,7 +231,7 @@ export const useFrameStore = create<FrameState>((set, get) => ({
 
   uploadInputs: async (id) => {
     try {
-      const res = await window.storyline.comfy.uploadInputs(id)
+      const res = await window.inlineStudio.comfy.uploadInputs(id)
       if (!res.ok) set({ error: res.error })
     } catch (e) {
       set({ error: ipcErrorMessage(e) })
@@ -240,7 +240,7 @@ export const useFrameStore = create<FrameState>((set, get) => ({
 
   pullWorkflow: async (id) => {
     try {
-      await window.storyline.comfy.pullWorkflow(id)
+      await window.inlineStudio.comfy.pullWorkflow(id)
     } catch {
       // best-effort sync — a transient failure shouldn't surface as an error
     }
@@ -248,7 +248,7 @@ export const useFrameStore = create<FrameState>((set, get) => ({
 
   saveLiveWorkflow: async (id, workflow) => {
     try {
-      const res = await window.storyline.comfy.saveLiveWorkflow(id, workflow)
+      const res = await window.inlineStudio.comfy.saveLiveWorkflow(id, workflow)
       // Merge the updated frame so the inspector's "ready" state reflects the capture.
       if (res.ok && res.value) {
         const frame = res.value
@@ -262,7 +262,7 @@ export const useFrameStore = create<FrameState>((set, get) => ({
   pullResult: async (id) => {
     set({ busyId: id, error: null })
     try {
-      const res = await window.storyline.comfy.pullLatest(id)
+      const res = await window.inlineStudio.comfy.pullLatest(id)
       if (!res.ok) return set({ error: res.error, busyId: null })
       const take = res.value
       set((s) => ({
@@ -277,7 +277,7 @@ export const useFrameStore = create<FrameState>((set, get) => ({
 
   captureOutput: async (frameId, output) => {
     try {
-      const res = await window.storyline.comfy.captureOutput(frameId, output)
+      const res = await window.inlineStudio.comfy.captureOutput(frameId, output)
       if (!res.ok) return set({ error: res.error })
       const take = res.value
       set((s) => ({
@@ -292,7 +292,7 @@ export const useFrameStore = create<FrameState>((set, get) => ({
   rename: async (id, name) => {
     set((s) => ({ frames: s.frames.map((sh) => (sh.id === id ? { ...sh, name } : sh)) }))
     try {
-      const res = await window.storyline.frames.rename(id, name)
+      const res = await window.inlineStudio.frames.rename(id, name)
       if (!res.ok) set({ error: res.error })
     } catch (e) {
       set({ error: ipcErrorMessage(e) })
@@ -311,7 +311,7 @@ export const useFrameStore = create<FrameState>((set, get) => ({
       return { frames: next }
     })
     try {
-      const res = await window.storyline.frames.reorder(orderedIds)
+      const res = await window.inlineStudio.frames.reorder(orderedIds)
       if (!res.ok) set({ error: res.error })
     } catch (e) {
       set({ error: ipcErrorMessage(e) })
@@ -320,7 +320,7 @@ export const useFrameStore = create<FrameState>((set, get) => ({
 
   remove: async (id) => {
     try {
-      const res = await window.storyline.frames.delete(id)
+      const res = await window.inlineStudio.frames.delete(id)
       if (!res.ok) return set({ error: res.error })
       set((s) => {
         const inputsByFrame = { ...s.inputsByFrame }
@@ -341,7 +341,7 @@ export const useFrameStore = create<FrameState>((set, get) => ({
 
   clone: async (id) => {
     try {
-      const res = await window.storyline.frames.clone(id)
+      const res = await window.inlineStudio.frames.clone(id)
       if (!res.ok) {
         set({ error: res.error })
         return null
@@ -356,7 +356,7 @@ export const useFrameStore = create<FrameState>((set, get) => ({
 
   unlink: async (id) => {
     try {
-      const res = await window.storyline.frames.unlink(id)
+      const res = await window.inlineStudio.frames.unlink(id)
       if (!res.ok) return set({ error: res.error })
       const frame = res.value
       set((s) => ({ frames: s.frames.map((sh) => (sh.id === id ? frame : sh)) }))
@@ -368,7 +368,7 @@ export const useFrameStore = create<FrameState>((set, get) => ({
   exportFrames: async () => {
     set({ error: null, notice: null })
     try {
-      const res = await window.storyline.export.exportFrames()
+      const res = await window.inlineStudio.export.exportFrames()
       if (!res.ok) return set({ error: res.error })
       if (res.value === null) return // cancelled
       const { exported, skipped, dir } = res.value

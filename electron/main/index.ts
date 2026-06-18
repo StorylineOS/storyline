@@ -37,7 +37,7 @@ function createMainWindow(): BrowserWindow {
     minHeight: 640,
     show: false,
     backgroundColor: '#16171b',
-    title: 'Storyline',
+    title: 'Inline Studio',
     webPreferences: {
       preload: join(__dirname, '../preload/index.cjs'),
       contextIsolation: true,

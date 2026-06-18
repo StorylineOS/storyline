@@ -42,7 +42,7 @@ export function ClaudeSignIn(): React.JSX.Element {
         <button
           onClick={() => void submit()}
           disabled={busy || !key.trim()}
-          className="mt-2 w-full rounded bg-accent px-2 py-1.5 text-xs font-medium text-white hover:brightness-110 disabled:opacity-40"
+          className="mt-2 w-full rounded bg-accent px-2 py-1.5 text-xs font-medium text-panel hover:brightness-110 disabled:opacity-40"
         >
           {busy ? 'Verifying…' : 'Connect'}
         </button>
@@ -54,7 +54,9 @@ export function ClaudeSignIn(): React.JSX.Element {
         )}
         <button
           onClick={() =>
-            void window.storyline.shell.openExternal('https://console.anthropic.com/settings/keys')
+            void window.inlineStudio.shell.openExternal(
+              'https://console.anthropic.com/settings/keys',
+            )
           }
           className="mt-3 text-[11px] text-zinc-500 hover:text-accent"
         >

@@ -1,7 +1,7 @@
 /** Drag-and-drop helpers used within the renderer. */
 
 /** Carries one or more asset ids when dragging from the Library. */
-export const ASSET_DND_TYPE = 'application/x-storyline-asset'
+export const ASSET_DND_TYPE = 'application/x-inlinestudio-asset'
 
 /** Encode the dragged asset ids onto a drag event's dataTransfer. */
 export function setAssetDragPayload(dt: DataTransfer, assetIds: string[]): void {
@@ -23,7 +23,7 @@ export function getAssetDragIds(dt: DataTransfer): string[] {
 }
 
 /** Carries a frame id when dragging a frame from the Timeline tab onto the canvas. */
-export const FRAME_DND_TYPE = 'application/x-storyline-frame'
+export const FRAME_DND_TYPE = 'application/x-inlinestudio-frame'
 
 /** Encode the dragged frame id onto a drag event's dataTransfer. */
 export function setFrameDragPayload(dt: DataTransfer, frameId: string): void {

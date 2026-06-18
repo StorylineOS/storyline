@@ -10,11 +10,11 @@
 export type FrameKind = 'image' | 'video'
 export type AssetKind = 'image' | 'video' | 'audio'
 
-/** A project is a portable `.storyline` folder; this is its DB-backed metadata. */
+/** A project is a portable `.inlinestudio` folder; this is its DB-backed metadata. */
 export interface Project {
   id: string
   name: string
-  /** Absolute path to the `.storyline` folder on disk. */
+  /** Absolute path to the `.inlinestudio` folder on disk. */
   path: string
   createdAt: number
   updatedAt: number
@@ -212,7 +212,7 @@ export interface WorkflowParam {
 
 /** App-global settings (stored in Electron userData, not per-project). */
 export interface AppSettings {
-  /** The ComfyUI backend Storyline talks to and embeds. */
+  /** The ComfyUI backend Inline Studio talks to and embeds. */
   comfyUrl: string
 }
 
@@ -328,9 +328,9 @@ export interface ComfyRun {
 
 /** Absolute media directories of the open project, for sharing with ComfyUI. */
 export interface ProjectMediaDirs {
-  /** Where Storyline keeps imported inputs — point ComfyUI's --input-directory here. */
+  /** Where Inline Studio keeps imported inputs — point ComfyUI's --input-directory here. */
   inputDir: string
-  /** Where Storyline keeps generated outputs — point ComfyUI's --output-directory here. */
+  /** Where Inline Studio keeps generated outputs — point ComfyUI's --output-directory here. */
   outputDir: string
 }
 

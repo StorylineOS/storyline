@@ -57,7 +57,7 @@ export function TextNode({ id, data, selected }: NodeProps): React.JSX.Element {
     void updateItem(id, { data: { text: { ...text, ...patch } } })
 
   const openLink = (): void => {
-    if (text.link && !editing) void window.storyline.shell.openExternal(text.link)
+    if (text.link && !editing) void window.inlineStudio.shell.openExternal(text.link)
   }
 
   // Refit when the text, font size/weight/style, or node width (wrapping) changes.

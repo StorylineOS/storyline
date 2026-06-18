@@ -1,6 +1,6 @@
-# Storyline — Engineering Guide
+# Inline Studio — Engineering Guide
 
-Storyline is a **narrative-first desktop app for filmmakers** that uses **ComfyUI** as an open
+Inline Studio is a **narrative-first desktop app for filmmakers** that uses **ComfyUI** as an open
 generative render-farm. Creators compose on a free-form node canvas and work frame-by-frame, while
 ComfyUI does the actual image/video/audio/LLM generation behind each frame.
 
@@ -12,7 +12,7 @@ ComfyUI does the actual image/video/audio/LLM generation behind each frame.
 Project → Sequence → Frame → Take[]
 ```
 
-- **Project** — a portable `.storyline` folder (see Storage below).
+- **Project** — a portable `.inlinestudio` folder (see Storage below).
 - **Sequence / Scene** — an ordered group of frames.
 - **Frame** — the atomic unit. **A Frame is a _slot with a history of takes_, never a single file.**
   Its inputs are library assets _or_ another frame's output (the refine/flow link).
@@ -31,9 +31,9 @@ Electron, two processes, one direction of dependency: **`renderer → IPC → ma
 - **Main process** (`electron/main/`) — owns all "trusted" work: filesystem, the project
   SQLite DB, the ComfyUI client, and ffmpeg. Node APIs live here only.
 - **Preload** (`electron/preload/`) — the _only_ bridge. Exposes a typed, minimal surface on
-  `window.storyline` via `contextBridge`. No raw `ipcRenderer`/channels leak to the renderer.
+  `window.inlineStudio` via `contextBridge`. No raw `ipcRenderer`/channels leak to the renderer.
 - **Renderer** (`src/renderer/`) — all React UI. Reaches the outside world _only_ through
-  `window.storyline`. Never imports `electron`, `fs`, `path`, `better-sqlite3`, `ws`, or
+  `window.inlineStudio`. Never imports `electron`, `fs`, `path`, `better-sqlite3`, `ws`, or
   `fluent-ffmpeg` (ESLint enforces this).
 - **Shared** (`src/shared/`) — types + the IPC contract imported by both processes.
 
@@ -44,18 +44,18 @@ electron/
   main/
     index.ts            app entry + BrowserWindow (security baseline)
     db/                 SQLite: schema.ts (tables+migrations), index.ts (open/close)
-    project/            project lifecycle: store.ts (.storyline folders), recents.ts
+    project/            project lifecycle: store.ts (.inlinestudio folders), recents.ts
     ipc/                handler.ts (Result wrapper), <feature>.ts handlers, index.ts (register)
     comfy/              client.ts — ComfyUI bridge (link/upload/capture); all Comfy knowledge here
     frames/             frame + take + input store
     moodboard/          canvas items + connectors store
     export/             folder.ts — hero-take export (file copy today; ffmpeg later)
   preload/
-    index.ts            contextBridge → window.storyline
+    index.ts            contextBridge → window.inlineStudio
 src/
   shared/
     types.ts            domain types (Project/Sequence/Frame/Take/MoodboardItem/...)
-    ipc.ts              IpcChannels + StorylineApi (the typed contract)
+    ipc.ts              IpcChannels + InlineStudioApi (the typed contract)
     result.ts           Result<T> = Ok | Err
   renderer/
     main.tsx, App.tsx
@@ -67,7 +67,7 @@ src/
 ### Storage — a project is a portable folder
 
 ```
-MyFilm.storyline/
+MyFilm.inlinestudio/
   project.db   (SQLite — source of truth; "save" is implicit)
   assets/      (imported library media, by id)
   takes/       (generated outputs from ComfyUI, by take id)
@@ -83,7 +83,7 @@ The recent-projects list lives in Electron `userData` (app-global), not in any p
 tab **embeds ComfyUI in a `<webview>`** rather than driving it headlessly, so the full node graph is
 always available. The bridge flow:
 
-- **Link a frame** → ensure a workflow exists at `/userdata/workflows/<name>.json` (Storyline keeps
+- **Link a frame** → ensure a workflow exists at `/userdata/workflows/<name>.json` (Inline Studio keeps
   the durable copy under the project's `workflows/`); seed a minimal one if none.
 - **Inputs** → upload the frame's inputs (assets, or a flow link resolved to the source frame's hero
   take) via `/upload/image`, then wire them into the workflow's `LoadImage` nodes so the displayed
@@ -99,7 +99,7 @@ here, not just an escape hatch.
 ## Code standards (non-negotiable)
 
 - **TypeScript strict.** No implicit `any`, no `as any` to silence errors. `npm run typecheck`.
-- **Typed IPC only.** Channels live in `src/shared/ipc.ts`; the preload implements `StorylineApi`;
+- **Typed IPC only.** Channels live in `src/shared/ipc.ts`; the preload implements `InlineStudioApi`;
   handlers use the `handle()` wrapper and return `Result<T>` — errors never cross the bridge raw.
 - **Validate IPC input in main.** Renderer payloads are untrusted; check them before use.
 - **Electron security baseline:** `contextIsolation: true`, `nodeIntegration: false`,

@@ -30,7 +30,7 @@ export function DeletableEdge(props: EdgeProps): React.JSX.Element {
   })
   const edgeData = data as { functional?: boolean; color?: string } | undefined
   const functional = edgeData?.functional ?? false
-  const stroke = selected ? '#fb7185' : functional ? '#6366f1' : (edgeData?.color ?? '#52525b')
+  const stroke = selected ? '#fb7185' : functional ? '#DCE775' : (edgeData?.color ?? '#52525b')
 
   return (
     <>

@@ -162,7 +162,7 @@ export function FrameNode({ id, data, selected }: NodeProps): React.JSX.Element 
   // the canvas from also handling the drop (which would spawn new frames). Multiple
   // assets (⌘/Ctrl-multi-select) are added at once; already-present ones are skipped.
   const hasAssetDrag = (e: React.DragEvent): boolean =>
-    e.dataTransfer.types.includes('application/x-storyline-asset')
+    e.dataTransfer.types.includes('application/x-inlinestudio-asset')
 
   const onDragOver = (e: React.DragEvent): void => {
     if (!hasAssetDrag(e)) return
@@ -321,7 +321,7 @@ export function FrameNode({ id, data, selected }: NodeProps): React.JSX.Element 
           </div>
 
           {dropActive && (
-            <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-md border-2 border-dashed border-accent bg-accent/15 text-[11px] font-medium text-white">
+            <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-md border-2 border-dashed border-accent bg-accent/15 text-[11px] font-medium text-panel">
               Add as input
             </div>
           )}

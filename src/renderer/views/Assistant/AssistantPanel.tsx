@@ -190,7 +190,7 @@ function Chat(): React.JSX.Element {
             <button
               onClick={submit}
               disabled={!draft.trim()}
-              className="rounded bg-accent px-3 py-1 text-xs font-medium text-white hover:brightness-110 disabled:opacity-40"
+              className="rounded bg-accent px-3 py-1 text-xs font-medium text-panel hover:brightness-110 disabled:opacity-40"
             >
               Send
             </button>
@@ -251,7 +251,7 @@ function ProposalCard({ proposal }: { proposal: ClaudeProposal }): React.JSX.Ele
         <button
           onClick={() => void applyProposal(proposal.id)}
           disabled={applying}
-          className="rounded bg-accent px-2.5 py-1 text-[11px] font-medium text-white hover:brightness-110 disabled:opacity-40"
+          className="rounded bg-accent px-2.5 py-1 text-[11px] font-medium text-panel hover:brightness-110 disabled:opacity-40"
         >
           {applying ? 'Working…' : 'Apply'}
         </button>

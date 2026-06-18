@@ -43,8 +43,14 @@ export function registerComfyHandlers(): void {
   handle<[string], boolean>(IpcChannels.comfy.pullWorkflow, (frameId) =>
     pullWorkflowToProject(str(frameId, 'frame id')),
   )
-  handle<[string, unknown], Frame | null>(IpcChannels.comfy.saveLiveWorkflow, (frameId, workflow) =>
-    saveLiveWorkflow(str(frameId, 'frame id'), asWorkflow(workflow)),
+  handle<[string, unknown, string | undefined], Frame | null>(
+    IpcChannels.comfy.saveLiveWorkflow,
+    (frameId, workflow, intent) =>
+      saveLiveWorkflow(
+        str(frameId, 'frame id'),
+        asWorkflow(workflow),
+        typeof intent === 'string' ? intent : undefined,
+      ),
   )
   handle<[string], void>(IpcChannels.comfy.pushWorkflow, (frameId) =>
     pushWorkflowFromProject(str(frameId, 'frame id')),

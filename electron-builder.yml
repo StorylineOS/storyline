@@ -1,8 +1,8 @@
 # electron-builder packaging config. `npm run build` compiles the app into out/;
 # electron-builder then bundles out/ + the production node_modules (including the
 # native better-sqlite3 addon) into platform installers under dist/.
-appId: com.storyline.app
-productName: Storyline
+appId: com.inlinestudio.app
+productName: Inline Studio
 directories:
   output: dist
   buildResources: build

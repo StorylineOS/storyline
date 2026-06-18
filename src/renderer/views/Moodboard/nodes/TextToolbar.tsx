@@ -190,7 +190,7 @@ function Toggle({
       aria-label={title}
       aria-pressed={active}
       className={`flex h-6 w-6 items-center justify-center rounded text-[12px] ${
-        active ? 'bg-accent text-white' : 'text-zinc-300 hover:bg-surface'
+        active ? 'bg-accent text-panel' : 'text-zinc-300 hover:bg-surface'
       }`}
     >
       {children}

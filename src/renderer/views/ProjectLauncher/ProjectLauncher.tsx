@@ -14,10 +14,10 @@ export function ProjectLauncher(): React.JSX.Element {
         <header className="mb-10 text-center">
           <div className="flex items-center justify-center gap-3">
             <Logo size={44} />
-            <h1 className="text-4xl font-semibold tracking-tight text-white">Storyline</h1>
+            <h1 className="text-4xl font-semibold tracking-tight text-white">Inline Studio</h1>
           </div>
           <p className="mt-3 text-sm text-zinc-400">
-            Build films frame by frame. ComfyUI as your render farm.
+            A narrative-first desktop app for visual artists, powered by your own ComfyUI.
           </p>
         </header>
 
@@ -36,7 +36,7 @@ export function ProjectLauncher(): React.JSX.Element {
             <button
               disabled={!canCreate}
               onClick={() => void createProject(name.trim())}
-              className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
+              className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-panel disabled:opacity-40"
             >
               Create
             </button>
@@ -46,7 +46,7 @@ export function ProjectLauncher(): React.JSX.Element {
             disabled={loading}
             className="mt-3 text-xs text-zinc-400 underline-offset-2 hover:text-zinc-200 hover:underline"
           >
-            …or open an existing .storyline project
+            …or open an existing project (.inlinestudio or legacy .storyline)
           </button>
         </section>
 
