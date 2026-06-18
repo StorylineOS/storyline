@@ -236,11 +236,22 @@ export function GeneratePanel(): React.JSX.Element {
     setCaptured((s) => new Set(s).add(output.url))
   }
 
-  // Reload the embedded page. Reset webviewReady so the save / open-workflow hooks
-  // re-inject on the next dom-ready (the reloaded page starts without them).
+  // Hard-reload the embedded page (bypass cache — a soft reload often leaves ComfyUI's
+  // SPA looking unchanged). Reset webviewReady so the save / open-workflow hooks re-inject
+  // on the next dom-ready. Falls back to a plain reload, then a fresh navigation.
   const reloadWebview = (): void => {
     setWebviewReady(false)
-    webviewRef.current?.reload()
+    const wv = webviewRef.current
+    if (!wv) return
+    try {
+      wv.reloadIgnoringCache()
+    } catch {
+      try {
+        wv.reload()
+      } catch {
+        wv.src = wv.getURL?.() || url
+      }
+    }
   }
 
   // Capture the live graph of the CURRENTLY ACTIVE ComfyUI tab into the frame it

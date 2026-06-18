@@ -1,6 +1,6 @@
 {
   "name": "inline-studio",
-  "version": "1.0.2",
+  "version": "1.0.21",
   "description": "Narrative-first desktop frontend for filmmakers, using ComfyUI as an open generative render-farm.",
   "author": "Inline Studio",
   "license": "MIT",
