@@ -11,10 +11,19 @@ interface UiState {
   activeFrameId: string | null
   /** The frame open in the right-side inspector drawer (null = closed). */
   inspectorFrameId: string | null
+  /** Whether the Claude assistant sidebar is open. */
+  assistantOpen: boolean
+  /** Currently selected moodboard node ids (mirrored from the canvas). */
+  canvasSelection: string[]
+  /** Flow-space center of the current canvas viewport (where the user is looking). */
+  canvasCenter: { x: number; y: number }
   setMode: (mode: WorkspaceMode) => void
   setLinkedWorkflow: (name: string | null) => void
   setActiveFrame: (frameId: string | null) => void
   setInspectorFrame: (frameId: string | null) => void
+  setAssistantOpen: (open: boolean) => void
+  setCanvasSelection: (ids: string[]) => void
+  setCanvasCenter: (c: { x: number; y: number }) => void
 }
 
 export const useUiStore = create<UiState>((set) => ({
@@ -22,8 +31,14 @@ export const useUiStore = create<UiState>((set) => ({
   linkedWorkflow: null,
   activeFrameId: null,
   inspectorFrameId: null,
+  assistantOpen: false,
+  canvasSelection: [],
+  canvasCenter: { x: 0, y: 0 },
   setMode: (mode) => set({ mode }),
   setLinkedWorkflow: (linkedWorkflow) => set({ linkedWorkflow }),
   setActiveFrame: (activeFrameId) => set({ activeFrameId }),
   setInspectorFrame: (inspectorFrameId) => set({ inspectorFrameId }),
+  setAssistantOpen: (assistantOpen) => set({ assistantOpen }),
+  setCanvasSelection: (canvasSelection) => set({ canvasSelection }),
+  setCanvasCenter: (canvasCenter) => set({ canvasCenter }),
 }))

@@ -11,7 +11,17 @@ import {
   type CreateFolderInput,
   type MoodboardItemPatch,
 } from '@shared/ipc'
-import type { ComfyOutput, MoodboardItem, MoodboardConnector } from '@shared/types'
+import type {
+  ComfyOutput,
+  MoodboardItem,
+  MoodboardConnector,
+  ClaudeSendInput,
+  ClaudeDeltaEvent,
+  ClaudeDoneEvent,
+  ClaudeErrorEvent,
+} from '@shared/types'
+import type { ClaudeProposal } from '@shared/claudeActions'
+import type { IpcRendererEvent } from 'electron'
 
 const api: StorylineApi = {
   project: {
@@ -79,6 +89,13 @@ const api: StorylineApi = {
     get: () => ipcRenderer.invoke(IpcChannels.settings.get),
     setComfyUrl: (url: string) => ipcRenderer.invoke(IpcChannels.settings.setComfyUrl, url),
   },
+  claude: {
+    status: () => ipcRenderer.invoke(IpcChannels.claude.status),
+    setApiKey: (key: string) => ipcRenderer.invoke(IpcChannels.claude.setApiKey, key),
+    clearApiKey: () => ipcRenderer.invoke(IpcChannels.claude.clearApiKey),
+    send: (input: ClaudeSendInput) => ipcRenderer.invoke(IpcChannels.claude.send, input),
+    cancel: () => ipcRenderer.invoke(IpcChannels.claude.cancel),
+  },
   export: {
     exportFrames: () => ipcRenderer.invoke(IpcChannels.export.exportFrames),
   },
@@ -130,7 +147,22 @@ const api: StorylineApi = {
       ipcRenderer.on(IpcChannels.events.libraryChanged, listener)
       return () => ipcRenderer.removeListener(IpcChannels.events.libraryChanged, listener)
     },
+    onClaudeDelta: (callback: (e: ClaudeDeltaEvent) => void) =>
+      subscribe(IpcChannels.events.claudeDelta, callback),
+    onClaudeProposal: (callback: (p: ClaudeProposal) => void) =>
+      subscribe(IpcChannels.events.claudeProposal, callback),
+    onClaudeDone: (callback: (e: ClaudeDoneEvent) => void) =>
+      subscribe(IpcChannels.events.claudeDone, callback),
+    onClaudeError: (callback: (e: ClaudeErrorEvent) => void) =>
+      subscribe(IpcChannels.events.claudeError, callback),
   },
+}
+
+/** Subscribe to a payload-carrying main→renderer event; returns an unsubscribe fn. */
+function subscribe<T>(channel: string, callback: (payload: T) => void): () => void {
+  const listener = (_e: IpcRendererEvent, payload: T): void => callback(payload)
+  ipcRenderer.on(channel, listener)
+  return () => ipcRenderer.removeListener(channel, listener)
 }
 
 contextBridge.exposeInMainWorld('storyline', api)

@@ -26,6 +26,7 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.104.2",
     "@xyflow/react": "^12.11.0",
     "better-sqlite3": "^11.8.1",
     "ffmpeg-static": "^5.2.0",

@@ -19,12 +19,18 @@ import type {
   Take,
   FrameInput,
   AppSettings,
+  ClaudeStatus,
+  ClaudeSendInput,
+  ClaudeDeltaEvent,
+  ClaudeDoneEvent,
+  ClaudeErrorEvent,
   ComfyStatus,
   ComfyOutput,
   ComfyRun,
   ExportResult,
   ProjectMediaDirs,
 } from './types'
+import type { ClaudeProposal } from './claudeActions'
 import type { Result } from './result'
 
 export const IpcChannels = {
@@ -85,6 +91,13 @@ export const IpcChannels = {
     get: 'settings:get',
     setComfyUrl: 'settings:setComfyUrl',
   },
+  claude: {
+    status: 'claude:status',
+    setApiKey: 'claude:setApiKey',
+    clearApiKey: 'claude:clearApiKey',
+    send: 'claude:send',
+    cancel: 'claude:cancel',
+  },
   export: {
     exportFrames: 'export:exportFrames',
   },
@@ -113,6 +126,11 @@ export const IpcChannels = {
   events: {
     /** Main → renderer: the asset library changed (e.g. a video poster/transcode is ready). */
     libraryChanged: 'events:libraryChanged',
+    /** Main → renderer: streamed Claude assistant output. */
+    claudeDelta: 'events:claudeDelta',
+    claudeProposal: 'events:claudeProposal',
+    claudeDone: 'events:claudeDone',
+    claudeError: 'events:claudeError',
   },
 } as const
 
@@ -240,6 +258,18 @@ export interface StorylineApi {
     get(): Promise<Result<AppSettings>>
     setComfyUrl(url: string): Promise<Result<AppSettings>>
   }
+  claude: {
+    /** Is a (validated) Anthropic API key saved, and is it stored encrypted? */
+    status(): Promise<Result<ClaudeStatus>>
+    /** Validate the key against Anthropic, then store it encrypted. Rejects bad keys. */
+    setApiKey(key: string): Promise<Result<ClaudeStatus>>
+    /** Forget the stored key. */
+    clearApiKey(): Promise<Result<ClaudeStatus>>
+    /** Start a streaming assistant turn; results arrive via the onDelta/onDone/onError events. */
+    send(input: ClaudeSendInput): Promise<Result<void>>
+    /** Abort the in-flight turn. */
+    cancel(): Promise<Result<void>>
+  }
   export: {
     /** Pick a folder and write each frame's Output in order; null if cancelled. */
     exportFrames(): Promise<Result<ExportResult | null>>
@@ -286,6 +316,11 @@ export interface StorylineApi {
   events: {
     /** Subscribe to "asset library changed" pushes from main. Returns an unsubscribe fn. */
     onLibraryChanged(callback: () => void): () => void
+    /** Subscribe to streamed Claude output. Each returns an unsubscribe fn. */
+    onClaudeDelta(callback: (e: ClaudeDeltaEvent) => void): () => void
+    onClaudeProposal(callback: (p: ClaudeProposal) => void): () => void
+    onClaudeDone(callback: (e: ClaudeDoneEvent) => void): () => void
+    onClaudeError(callback: (e: ClaudeErrorEvent) => void): () => void
   }
 }
 

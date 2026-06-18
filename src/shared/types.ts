@@ -216,6 +216,94 @@ export interface AppSettings {
   comfyUrl: string
 }
 
+/** Whether the Claude assistant is connected, and how the key is stored. */
+export interface ClaudeStatus {
+  /** An API key is saved (validated at save time). */
+  configured: boolean
+  /** False when the OS lacks a secure keystore and the key is stored plaintext. */
+  encrypted: boolean
+}
+
+/** One chat turn between the user and Claude. */
+export interface ClaudeMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+/** One canvas node in the snapshot, with geometry and layer membership. */
+export interface ClaudeBoardItem {
+  id: string
+  /** 'frame' | 'layer' | 'preview' | 'text' | 'image' | 'video' | 'audio' */
+  type: string
+  /** Frame name / layer label / text snippet / asset name. */
+  name: string
+  x: number
+  y: number
+  width: number
+  height: number
+  /** Containing layer id (positions are relative to it), or null for top-level. */
+  parentId: string | null
+}
+
+/**
+ * User-attached context for a turn: specific selected nodes the user is referring to,
+ * or an empty-canvas spot where new items should go.
+ */
+export interface ClaudeContextAttachment {
+  kind: 'items' | 'spot'
+  /** Canvas item ids, for kind 'items'. */
+  ids?: string[]
+  /** Canvas coordinate, for kind 'spot'. */
+  x?: number
+  y?: number
+}
+
+/** A compact snapshot of the open project, sent each turn so Claude is grounded. */
+export interface ClaudeContext {
+  mode: string
+  comfyReachable: boolean
+  activeFrame: {
+    id: string
+    name: string
+    inputCount: number
+    takeCount: number
+    workflowReady: boolean
+  } | null
+  /** What the user explicitly attached to this message (selected items / a spot). */
+  attachments: ClaudeContextAttachment[]
+  /** The current canvas: nodes with positions/sizes and which layer they're in. */
+  board: ClaudeBoardItem[]
+  /** Timeline frames (may or may not be placed on the canvas). */
+  frames: Array<{ id: string; name: string; kind: string }>
+  assets: Array<{ id: string; name: string; kind: string }>
+}
+
+/** Payload the renderer sends to start an assistant turn. */
+export interface ClaudeSendInput {
+  /** Correlates the streamed events back to this turn. */
+  turnId: string
+  /** The model id to use (validated in main; falls back to the default). */
+  model?: string
+  /** Full chat history (including the latest user message). */
+  messages: ClaudeMessage[]
+  context: ClaudeContext
+}
+
+/** Streamed assistant events (main → renderer), correlated by `turnId`. */
+export interface ClaudeDeltaEvent {
+  turnId: string
+  text: string
+}
+export interface ClaudeDoneEvent {
+  turnId: string
+  /** The complete assistant text for the turn. */
+  text: string
+}
+export interface ClaudeErrorEvent {
+  turnId: string
+  error: string
+}
+
 /** Result of pinging the configured ComfyUI backend. */
 export interface ComfyStatus {
   running: boolean

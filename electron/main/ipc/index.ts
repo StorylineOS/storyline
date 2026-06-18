@@ -6,6 +6,7 @@ import { registerMoodboardHandlers } from './moodboard'
 import { registerFrameHandlers } from './frames'
 import { registerComfyHandlers } from './comfy'
 import { registerSettingsHandlers } from './settings'
+import { registerClaudeHandlers } from './claude'
 import { registerExportHandlers } from './export'
 import { registerClipboardHandlers } from './clipboard'
 import { registerShellHandlers } from './shell'
@@ -18,6 +19,7 @@ export function registerIpcHandlers(): void {
   registerFrameHandlers()
   registerComfyHandlers()
   registerSettingsHandlers()
+  registerClaudeHandlers()
   registerExportHandlers()
   registerClipboardHandlers()
   registerShellHandlers()

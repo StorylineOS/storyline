@@ -1,5 +1,7 @@
+import { useCallback, useRef, useState } from 'react'
 import type { Project } from '@shared/types'
 import { Logo } from '../../components/Logo'
+import { ClaudeLogo } from '../../components/ClaudeLogo'
 import { useProjectStore } from '../../store/projectStore'
 import { useAssetStore } from '../../store/assetStore'
 import { useMoodboardStore } from '../../store/moodboardStore'
@@ -7,11 +9,14 @@ import { useFrameStore } from '../../store/frameStore'
 import { useUiStore, type WorkspaceMode } from '../../store/uiStore'
 import { MoodboardPanel } from '../Moodboard/MoodboardPanel'
 import { GeneratePanel } from '../Generate/GeneratePanel'
+import { AssistantPanel } from '../Assistant/AssistantPanel'
 
 /** The main shell: a node canvas ("Storyline") plus the embedded ComfyUI Generate tab. */
 export function Workspace({ project }: { project: Project }): React.JSX.Element {
   const mode = useUiStore((s) => s.mode)
   const setMode = useUiStore((s) => s.setMode)
+  const assistantOpen = useUiStore((s) => s.assistantOpen)
+  const setAssistantOpen = useUiStore((s) => s.setAssistantOpen)
   const closeProject = useProjectStore((s) => s.closeProject)
   const resetAssets = useAssetStore((s) => s.reset)
   const resetBoard = useMoodboardStore((s) => s.reset)
@@ -24,6 +29,29 @@ export function Workspace({ project }: { project: Project }): React.JSX.Element 
     resetFrames()
     closeProject()
   }
+
+  // Resizable assistant sidebar.
+  const [assistantWidth, setAssistantWidth] = useState(384)
+  const dragState = useRef<{ startX: number; startWidth: number } | null>(null)
+  const onDragStart = useCallback(
+    (e: React.MouseEvent): void => {
+      dragState.current = { startX: e.clientX, startWidth: assistantWidth }
+      const onMove = (ev: MouseEvent): void => {
+        if (!dragState.current) return
+        // Sidebar is on the right, so dragging left (negative dx) widens it.
+        const next = dragState.current.startWidth - (ev.clientX - dragState.current.startX)
+        setAssistantWidth(Math.min(720, Math.max(300, next)))
+      }
+      const onUp = (): void => {
+        dragState.current = null
+        window.removeEventListener('mousemove', onMove)
+        window.removeEventListener('mouseup', onUp)
+      }
+      window.addEventListener('mousemove', onMove)
+      window.addEventListener('mouseup', onUp)
+    },
+    [assistantWidth],
+  )
 
   return (
     <div className="flex h-full flex-col">
@@ -45,27 +73,45 @@ export function Workspace({ project }: { project: Project }): React.JSX.Element 
           <ModeToggle mode={mode} onChange={setMode} />
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center">
           <button
-            onClick={onClose}
-            className="rounded-md border border-border px-3 py-1.5 text-xs text-zinc-300 hover:bg-panel"
+            onClick={() => setAssistantOpen(!assistantOpen)}
+            title={assistantOpen ? 'Hide Claude assistant' : 'Open Claude assistant'}
+            className={`-m-1 p-1 transition-colors ${
+              assistantOpen ? 'text-white' : 'text-zinc-400 hover:text-zinc-200'
+            }`}
           >
-            Close
+            <ClaudeLogo size={20} />
           </button>
         </div>
       </header>
 
-      <main className="min-h-0 flex-1">
-        {/* Generate stays mounted (just hidden) so ComfyUI doesn't reload and
-            restore its previous tab each time — which raced our 'open workflow'
-            and selected the wrong frame. */}
-        <div className={mode === 'generate' ? 'h-full' : 'hidden'}>
-          <GeneratePanel />
+      <main className="flex min-h-0 flex-1">
+        <div className="relative min-h-0 flex-1">
+          {/* Generate stays mounted (just hidden) so ComfyUI doesn't reload and
+              restore its previous tab each time — which raced our 'open workflow'
+              and selected the wrong frame. */}
+          <div className={mode === 'generate' ? 'h-full' : 'hidden'}>
+            <GeneratePanel />
+          </div>
+
+          <div className={mode === 'moodboard' ? 'h-full' : 'hidden'}>
+            <MoodboardPanel />
+          </div>
         </div>
 
-        <div className={mode === 'moodboard' ? 'h-full' : 'hidden'}>
-          <MoodboardPanel />
-        </div>
+        {assistantOpen && (
+          <>
+            <div
+              onMouseDown={onDragStart}
+              title="Drag to resize"
+              className="w-1 shrink-0 cursor-col-resize bg-border hover:bg-accent"
+            />
+            <div className="min-h-0 shrink-0" style={{ width: assistantWidth }}>
+              <AssistantPanel />
+            </div>
+          </>
+        )}
       </main>
     </div>
   )

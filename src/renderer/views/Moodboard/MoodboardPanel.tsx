@@ -8,6 +8,8 @@ import {
   useNodesState,
   useEdgesState,
   useReactFlow,
+  useViewport,
+  getNodesBounds,
   applyNodeChanges,
   type Node,
   type Edge,
@@ -22,6 +24,9 @@ import type { MoodboardItem, MoodboardConnector, TextItemData } from '@shared/ty
 import { useMoodboardStore } from '../../store/moodboardStore'
 import { useAssetStore } from '../../store/assetStore'
 import { useFrameStore } from '../../store/frameStore'
+import { useUiStore } from '../../store/uiStore'
+import { useClaudeStore } from '../../store/claudeStore'
+import { ClaudeLogo } from '../../components/ClaudeLogo'
 import { getAssetDragIds, getFrameDragId } from '../../lib/dnd'
 import { ImageNode } from './nodes/ImageNode'
 import { VideoNode } from './nodes/VideoNode'
@@ -142,6 +147,8 @@ function Board(): React.JSX.Element {
   const assets = useAssetStore((s) => s.assets)
   const loadAssets = useAssetStore((s) => s.load)
   const loadFrames = useFrameStore((s) => s.load)
+  const setCanvasSelection = useUiStore((s) => s.setCanvasSelection)
+  const setCanvasCenter = useUiStore((s) => s.setCanvasCenter)
   const wrapperRef = useRef<HTMLDivElement>(null)
   const { screenToFlowPosition, getNodes } = useReactFlow()
   const [nodes, setNodes] = useNodesState<Node>([])
@@ -359,6 +366,10 @@ function Board(): React.JSX.Element {
           onNodesDelete={(deleted) => deleted.forEach((n) => void deleteItem(n.id))}
           onConnect={onConnect}
           onEdgesDelete={(deleted) => deleted.forEach((e) => void disconnect(e.id))}
+          // Mirror selection + viewport so the assistant can use them as context.
+          onSelectionChange={({ nodes: sel }) => setCanvasSelection(sel.map((n) => n.id))}
+          onMove={() => setCanvasCenter(centre())}
+          onInit={() => setCanvasCenter(centre())}
           proOptions={{ hideAttribution: true }}
           minZoom={0.1}
           maxZoom={4}
@@ -368,6 +379,8 @@ function Board(): React.JSX.Element {
         </ReactFlow>
 
         {items.length === 0 && <EmptyCanvasHint />}
+
+        <SelectionActions />
 
         <CanvasToolbar
           onAddFrame={() => {
@@ -390,6 +403,45 @@ function Board(): React.JSX.Element {
       </div>
 
       <FrameInspector />
+    </div>
+  )
+}
+
+/**
+ * Floating "Add to Claude" action pinned to the top-right of the current selection.
+ * Attaches the selected nodes as chat context and opens the assistant.
+ */
+function SelectionActions(): React.JSX.Element | null {
+  const selection = useUiStore((s) => s.canvasSelection)
+  const attachSelection = useClaudeStore((s) => s.attachSelection)
+  const setAssistantOpen = useUiStore((s) => s.setAssistantOpen)
+  const { getNodes } = useReactFlow()
+  const { x, y, zoom } = useViewport()
+
+  if (selection.length === 0) return null
+  const nodes = getNodes().filter((n) => n.selected)
+  if (nodes.length === 0) return null
+
+  // Top-right corner of the selection bounds, in pane (wrapper) pixels.
+  const b = getNodesBounds(nodes)
+  const left = (b.x + b.width) * zoom + x
+  const top = b.y * zoom + y
+
+  return (
+    <div
+      className="pointer-events-none absolute left-0 top-0 z-20"
+      style={{ transform: `translate(${left}px, ${top - 8}px)` }}
+    >
+      <button
+        onClick={() => {
+          attachSelection()
+          setAssistantOpen(true)
+        }}
+        className="pointer-events-auto flex -translate-x-full -translate-y-full items-center gap-1 whitespace-nowrap rounded-md border border-[#D97757]/50 bg-panel px-2 py-1 text-[11px] font-medium text-zinc-100 shadow-lg hover:bg-surface"
+      >
+        <ClaudeLogo size={12} className="text-[#D97757]" />
+        Add to Claude
+      </button>
     </div>
   )
 }

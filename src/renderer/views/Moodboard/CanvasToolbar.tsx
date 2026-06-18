@@ -1,9 +1,10 @@
 import { useState } from 'react'
 
 /**
- * Floating bottom-right action button. Click the accent + to expand node-creation
- * actions (Layer, Preview, Text); the + rotates into a close (×) while open. Each
- * action adds a node at the current canvas center and collapses the menu.
+ * Floating bottom-left action button. Click the accent + to expand node-creation
+ * actions (Frame, Layer, Preview, Text); the + rotates into a close (×) while open.
+ * It sits inside the canvas area, so it tracks the Assets panel as it opens/resizes.
+ * Each action adds a node at the current canvas center and collapses the menu.
  */
 export function CanvasToolbar({
   onAddFrame,
@@ -24,7 +25,7 @@ export function CanvasToolbar({
   }
 
   return (
-    <div className="absolute bottom-4 right-4 z-10 flex flex-col items-end gap-2">
+    <div className="absolute bottom-4 left-4 z-10 flex flex-col items-start gap-2">
       {open && (
         <>
           <SubAction label="Add frame" onClick={run(onAddFrame)}>
@@ -47,7 +48,7 @@ export function CanvasToolbar({
         title={open ? 'Close' : 'Add to canvas'}
         aria-label={open ? 'Close' : 'Add to canvas'}
         aria-expanded={open}
-        className="flex h-12 w-12 items-center justify-center rounded-full bg-accent text-white shadow-lg hover:brightness-110"
+        className="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-white shadow-lg hover:brightness-110"
       >
         <svg
           viewBox="0 0 24 24"
@@ -55,7 +56,7 @@ export function CanvasToolbar({
           stroke="currentColor"
           strokeWidth="2.5"
           strokeLinecap="round"
-          className={`h-6 w-6 transition-transform duration-200 ${open ? 'rotate-45' : ''}`}
+          className={`h-5 w-5 transition-transform duration-200 ${open ? 'rotate-45' : ''}`}
         >
           <line x1="12" y1="5" x2="12" y2="19" />
           <line x1="5" y1="12" x2="19" y2="12" />
@@ -76,17 +77,17 @@ function SubAction({
 }): React.JSX.Element {
   return (
     <div className="flex items-center gap-2">
-      <span className="rounded bg-black/70 px-1.5 py-0.5 text-[11px] text-zinc-100 shadow">
-        {label}
-      </span>
       <button
         onClick={onClick}
         title={label}
         aria-label={label}
-        className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-panel text-zinc-200 shadow-md hover:border-accent hover:bg-surface hover:text-white"
+        className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-panel text-zinc-200 shadow-md hover:border-accent hover:bg-surface hover:text-white"
       >
         {children}
       </button>
+      <span className="rounded bg-black/70 px-1.5 py-0.5 text-[11px] text-zinc-100 shadow">
+        {label}
+      </span>
     </div>
   )
 }
