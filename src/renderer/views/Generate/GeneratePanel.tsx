@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ComfyStatus, ComfyOutput, ComfyRun } from '@shared/types'
 import { useSettingsStore } from '../../store/settingsStore'
 import { useUiStore } from '../../store/uiStore'
@@ -29,13 +29,25 @@ function openWorkflowScript(name: string): string {
       return false;
     };
     await waitFor(() => window.app && window.app.graph);
-    const path = 'workflows/' + ${n} + '.json';
-    // A saved workflow matches by its path/key, tolerating versions that only expose
-    // a filename or that prefix the path differently.
-    const matches = (w) => {
-      if (!w) return false;
-      const p = w.path || w.key || w.filename || '';
-      return p === path || (typeof p === 'string' && p.endsWith(${n} + '.json'));
+    const base = ${n};
+    const path = 'workflows/' + base + '.json';
+    // Match by BASENAME (filename without folders or .json) so detection is robust
+    // across ComfyUI versions that expose the tab as a path, a key, a filename, or a
+    // bare string — the cause of duplicate tabs was a too-strict full-path compare.
+    const baseOf = (w) => {
+      if (!w) return '';
+      let p = (typeof w === 'string') ? w : (w.path || w.key || w.filename || '');
+      if (typeof p !== 'string') p = '';
+      return p.replace(/^.*\\//, '').replace(/\\.json$/i, '');
+    };
+    const matches = (w) => baseOf(w) === base;
+    // The list of currently OPEN tabs, however this version names it.
+    const openTabs = (s) => {
+      for (const c of [s.openWorkflows, s.openedWorkflows, s.openWorkflowPaths]) {
+        const arr = (typeof c === 'function') ? c() : c;
+        if (Array.isArray(arr)) return arr;
+      }
+      return [];
     };
 
     // 1) Open the SAVED workflow via the workflow store (so Save targets the same file).
@@ -49,19 +61,26 @@ function openWorkflowScript(name: string): string {
       }
       if (useWorkflowStore) {
         const store = useWorkflowStore();
-        // 1a) Already open in a tab? Just switch to it — don't open a duplicate.
-        const openList = store.openWorkflows || store.openedWorkflows || [];
-        if (Array.isArray(openList)) {
-          const already = openList.find(matches);
-          if (already) {
-            if (typeof store.openWorkflow === 'function') await store.openWorkflow(already);
-            else store.activeWorkflow = already;
-            return 'switched';
-          }
+        // 1a) Already the active tab? Nothing to do.
+        if (matches(store.activeWorkflow)) return 'active';
+        // 1b) Already open in another tab? Switch to it — never open a duplicate.
+        const already = openTabs(store).find(matches);
+        if (already) {
+          // Resolve to a workflow object (the list may hold bare path strings).
+          let wf = (already && typeof already === 'object') ? already
+            : (typeof store.getWorkflowByPath === 'function' ? store.getWorkflowByPath(path) : null);
+          if (!wf) wf = already;
+          if (typeof store.openWorkflow === 'function') await store.openWorkflow(wf);
+          else store.activeWorkflow = wf;
+          return 'switched';
         }
-        // 1b) Otherwise open the saved workflow.
-        let wf = null;
-        if (typeof store.getWorkflowByPath === 'function') wf = store.getWorkflowByPath(path);
+        // 1c) Not open yet. Make sure the store knows the file Storyline just pushed
+        // (else getWorkflowByPath misses it and we'd open a throwaway Unsaved tab that
+        // future opens can't match — the duplicate-tab loop), then open the SAVED file.
+        for (const m of ['syncWorkflows','loadWorkflows','reloadWorkflows','refreshWorkflows']) {
+          if (typeof store[m] === 'function') { try { await store[m](); break; } catch (e) {} }
+        }
+        let wf = (typeof store.getWorkflowByPath === 'function') ? store.getWorkflowByPath(path) : null;
         if (!wf && Array.isArray(store.workflows)) wf = store.workflows.find(matches);
         if (wf && typeof store.openWorkflow === 'function') { await store.openWorkflow(wf); return 'opened'; }
       }
@@ -88,6 +107,51 @@ function openWorkflowScript(name: string): string {
     } catch (e) { console.error('[storyline] loadGraphData failed', e); }
     return 'failed';
   })();`
+}
+
+/**
+ * Serialize the LIVE graph on the ComfyUI canvas AND report which workflow tab is
+ * currently active, as a JSON string `{ name, graph }`:
+ *  - `graph`: the serialized graph (same shape ComfyUI writes on Save), or null if the
+ *    page can't serialize (older ComfyUI without window.app.graph.serialize).
+ *  - `name`: the active workflow's path/name (e.g. "workflows/18 <id>.json"), or null if
+ *    it can't be identified.
+ * The host uses `name` to attribute the graph to the RIGHT frame — so closing a frame's
+ * tab (which makes ComfyUI switch to a different tab) can never save the wrong graph.
+ */
+function serializeActiveWorkflowScript(): string {
+  return `(() => {
+    const out = { name: null, graph: null };
+    try {
+      const app = window.app;
+      const g = app && app.graph;
+      if (g && typeof g.serialize === 'function') out.graph = g.serialize();
+      // Identify the active workflow via the workflow store (modern) or manager (older).
+      let active = null;
+      try {
+        const reg = window.comfyAPI || {};
+        let useWorkflowStore = reg.workflowStore && reg.workflowStore.useWorkflowStore;
+        if (!useWorkflowStore) {
+          for (const k in reg) { if (reg[k] && reg[k].useWorkflowStore) { useWorkflowStore = reg[k].useWorkflowStore; break; } }
+        }
+        if (useWorkflowStore) active = useWorkflowStore().activeWorkflow;
+      } catch (e) {}
+      if (!active) { try { active = app.workflowManager && app.workflowManager.activeWorkflow; } catch (e) {} }
+      if (active) {
+        const p = active.path || active.key || active.filename;
+        if (typeof p === 'string') out.name = p;
+      }
+    } catch (e) {}
+    return JSON.stringify(out);
+  })();`
+}
+
+/**
+ * Reduce an active workflow's path/name (e.g. "workflows/18 <id>.json" or "18 <id>") to
+ * the bare workflow name Storyline stores as `comfyWorkflowName`, for tab→frame mapping.
+ */
+function activeWorkflowBaseName(path: string): string {
+  return path.replace(/^.*\//, '').replace(/\.json$/i, '')
 }
 
 /** Marker the in-page save hook logs; the host listens for it on `console-message`. */
@@ -144,6 +208,7 @@ export function GeneratePanel(): React.JSX.Element {
   const activeFrame = useFrameStore((s) => s.frames.find((sh) => sh.id === activeFrameId))
   const captureOutput = useFrameStore((s) => s.captureOutput)
   const pullWorkflow = useFrameStore((s) => s.pullWorkflow)
+  const saveLiveWorkflow = useFrameStore((s) => s.saveLiveWorkflow)
   const [status, setStatus] = useState<ComfyStatus | null>(null)
   const [draftUrl, setDraftUrl] = useState('')
   const webviewRef = useRef<ComfyWebview | null>(null)
@@ -152,7 +217,8 @@ export function GeneratePanel(): React.JSX.Element {
   const [run, setRun] = useState<ComfyRun | null>(null)
   const [captured, setCaptured] = useState<Set<string>>(new Set())
   const seenPromptId = useRef<string | null>(null)
-  // The frame whose workflow is currently open — for safety-net pulls on switch/leave.
+  // The frame whose workflow tab is currently open in the webview. Drives autosave and
+  // capture-on-switch/leave so the right frame receives the captured graph.
   const prevFrameRef = useRef<string | null>(null)
   // Consecutive failed status pings — used to debounce the "not reachable" state so a
   // single slow ping doesn't tear down the embedded page (see `check`).
@@ -176,6 +242,42 @@ export function GeneratePanel(): React.JSX.Element {
     setWebviewReady(false)
     webviewRef.current?.reload()
   }
+
+  // Capture the live graph of the CURRENTLY ACTIVE ComfyUI tab into the frame it
+  // belongs to — the core "forgot to Save" fix, made tab-safe. We attribute the graph
+  // by the active workflow's name (not the frame Storyline last opened), so closing a
+  // tab — which switches ComfyUI's active tab — can never write one frame's graph into
+  // another. `hintFrameId` is used only for the saved-file fallback, which reads that
+  // frame's own file and is therefore always safe.
+  const captureLiveWorkflow = useCallback(
+    async (hintFrameId: string | null): Promise<void> => {
+      const wv = webviewRef.current
+      if (!wv) return
+      let parsed: { name?: unknown; graph?: unknown } | null = null
+      try {
+        const raw = await wv.executeJavaScript(serializeActiveWorkflowScript())
+        parsed =
+          typeof raw === 'string' ? (JSON.parse(raw) as { name?: unknown; graph?: unknown }) : null
+      } catch {
+        parsed = null
+      }
+      const graph = parsed?.graph
+      if (graph && typeof graph === 'object') {
+        // Map the active tab to its frame by workflow name; skip if we can't (rather
+        // than risk clobbering a frame with another tab's graph).
+        const name = typeof parsed?.name === 'string' ? activeWorkflowBaseName(parsed.name) : null
+        const frame = name
+          ? useFrameStore.getState().frames.find((f) => f.comfyWorkflowName === name)
+          : undefined
+        if (frame) await saveLiveWorkflow(frame.id, graph)
+        return
+      }
+      // No live graph (older ComfyUI): fall back to pulling the hinted frame's own
+      // saved file — always its own file, so this never crosses tabs.
+      if (hintFrameId) void pullWorkflow(hintFrameId)
+    },
+    [saveLiveWorkflow, pullWorkflow],
+  )
 
   const check = async (): Promise<void> => {
     let down = false
@@ -262,16 +364,21 @@ export function GeneratePanel(): React.JSX.Element {
   }, [running])
 
   // When a frame is linked (or changes), drive the embedded ComfyUI to open it.
-  // If the saved workflow tab opens cleanly, clear the hint (no sidebar step needed).
+  // Before replacing the open tab, capture its live graph so a switch can't lose the
+  // previous frame's unsaved edits. `activeFrameId` is the frame being opened.
   useEffect(() => {
     if (!webviewReady || !linkedWorkflow || !webviewRef.current) return
+    const wv = webviewRef.current
+    const leaving = prevFrameRef.current
+    const opening = activeFrameId
     // One-frame: clear after attempting so a remount can't replay a stale workflow
     // and re-select the wrong frame's tab.
-    webviewRef.current
-      .executeJavaScript(openWorkflowScript(linkedWorkflow))
-      .catch(() => {})
-      .finally(() => setLinkedWorkflow(null))
-  }, [webviewReady, linkedWorkflow, setLinkedWorkflow])
+    void (async () => {
+      if (leaving && leaving !== opening) await captureLiveWorkflow(leaving)
+      await wv.executeJavaScript(openWorkflowScript(linkedWorkflow)).catch(() => {})
+      prevFrameRef.current = opening
+    })().finally(() => setLinkedWorkflow(null))
+  }, [webviewReady, linkedWorkflow, activeFrameId, captureLiveWorkflow, setLinkedWorkflow])
 
   // Install the save hook and listen for its marker: when the user saves a workflow
   // inside ComfyUI, pull the JSON back into Storyline's durable copy. The marker's
@@ -295,17 +402,19 @@ export function GeneratePanel(): React.JSX.Element {
     return () => wv.removeEventListener('console-message', onConsole)
   }, [webviewReady, pullWorkflow])
 
-  // Safety net (in case the hook misses): pull the previous frame's workflow when the
-  // open frame changes, and the active frame's when leaving the Generate tab.
+  // Debounced autosave: snapshot the live graph of the open frame on an interval, so a
+  // user who never presses Save in ComfyUI still can't lose their work mid-edit.
   useEffect(() => {
-    const prev = prevFrameRef.current
-    if (prev && prev !== activeFrameId) void pullWorkflow(prev)
-    prevFrameRef.current = activeFrameId
-  }, [activeFrameId, pullWorkflow])
+    if (mode !== 'generate' || !webviewReady) return
+    const timer = setInterval(() => void captureLiveWorkflow(prevFrameRef.current), 5000)
+    return () => clearInterval(timer)
+  }, [mode, webviewReady, captureLiveWorkflow])
 
+  // Capture the open frame's live graph when leaving the Generate tab (a last snapshot
+  // before the user navigates away).
   useEffect(() => {
-    if (mode !== 'generate' && activeFrameId) void pullWorkflow(activeFrameId)
-  }, [mode, activeFrameId, pullWorkflow])
+    if (mode !== 'generate') void captureLiveWorkflow(prevFrameRef.current)
+  }, [mode, captureLiveWorkflow])
 
   // Once ComfyUI has been reachable, remember it so the <webview> stays mounted even
   // across a transient drop — we overlay the guide rather than destroying the page.

@@ -14,6 +14,7 @@ import {
   addTake,
   getFrameById,
   linkWorkflow,
+  setWorkflowReady,
   frameInputFileNames,
   frameInputAssetPaths,
 } from '../frames/store'
@@ -241,6 +242,39 @@ function injectInputsIntoWorkflow(workflow: unknown, names: string[]): boolean {
   return changed
 }
 
+/** Node types the seed workflow ships with — they don't make a workflow "built". */
+const SEED_NODE_TYPES = new Set(['Note', 'MarkdownNote', 'LoadImage', 'PreviewImage'])
+
+/** The serialized graph's nodes array, or null if this isn't a workflow-shaped object. */
+function workflowNodes(workflow: unknown): unknown[] | null {
+  if (!workflow || typeof workflow !== 'object') return null
+  const nodes = (workflow as { nodes?: unknown }).nodes
+  return Array.isArray(nodes) ? nodes : null
+}
+
+/**
+ * A graph worth persisting: workflow-shaped with at least one node. Guards against
+ * clobbering a real saved copy with a blank/failed serialization during page load.
+ */
+function isMeaningfulWorkflow(workflow: unknown): boolean {
+  const nodes = workflowNodes(workflow)
+  return !!nodes && nodes.length > 0
+}
+
+/**
+ * Has the user actually built this workflow, vs. it still being the seed? True when the
+ * graph contains any node beyond the seed's boilerplate (a Note + optional LoadImage) —
+ * i.e. something that does real generation work.
+ */
+function isBuiltWorkflow(workflow: unknown): boolean {
+  const nodes = workflowNodes(workflow)
+  if (!nodes) return false
+  return nodes.some((n) => {
+    const t = (n as { type?: unknown })?.type
+    return typeof t === 'string' && !SEED_NODE_TYPES.has(t)
+  })
+}
+
 /**
  * Link/open a frame's ComfyUI workflow, with Storyline as the durable source of
  * truth: if we have a local copy, push it to the connected ComfyUI (restores it
@@ -284,10 +318,43 @@ export async function pullWorkflowToProject(frameId: string): Promise<boolean> {
   if (!frame.comfyWorkflowName) return false
   const remote = await getRemoteWorkflow(frame.comfyWorkflowName)
   if (remote == null) return false
+  if (isBuiltWorkflow(remote) && !frame.comfyWorkflowReady) setWorkflowReady(frameId, true)
   const prev = readLocalWorkflow(frameId)
   if (JSON.stringify(prev) === JSON.stringify(remote)) return false
   writeLocalWorkflow(frameId, remote)
   return true
+}
+
+/**
+ * Capture the LIVE (possibly unsaved) graph the renderer serialized straight off the
+ * ComfyUI canvas into the frame's durable copy, and mirror it to ComfyUI's saved file
+ * so the named tab and our copy stay in sync. This is what makes "forgot to press Save"
+ * non-destructive — Storyline owns the graph regardless of ComfyUI's own save action.
+ * Ignores blank/non-workflow payloads. Returns the updated frame if anything changed,
+ * else null.
+ */
+export async function saveLiveWorkflow(frameId: string, workflow: unknown): Promise<Frame | null> {
+  const frame = getFrameById(frameId)
+  if (!frame.comfyWorkflowName) return null
+  if (!isMeaningfulWorkflow(workflow)) return null
+
+  const built = isBuiltWorkflow(workflow)
+  const becameReady = built && !frame.comfyWorkflowReady
+  const prev = readLocalWorkflow(frameId)
+  const unchanged = JSON.stringify(prev) === JSON.stringify(workflow)
+  if (unchanged && !becameReady) return null
+
+  if (!unchanged) {
+    writeLocalWorkflow(frameId, workflow)
+    // Mirror to ComfyUI's saved file so re-link / "Open workflow.json" reflect it too.
+    // Best-effort: the durable copy above is what matters for not losing work.
+    try {
+      await pushWorkflowToComfy(frame.comfyWorkflowName, workflow)
+    } catch {
+      // ignore — comfy momentarily unreachable; the project copy is already saved
+    }
+  }
+  return becameReady ? setWorkflowReady(frameId, true) : getFrameById(frameId)
 }
 
 /** Push the project's copy of the frame's workflow to ComfyUI. */

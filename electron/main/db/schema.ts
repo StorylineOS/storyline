@@ -5,7 +5,7 @@
  */
 import type BetterSqlite3 from 'better-sqlite3'
 
-export const SCHEMA_VERSION = 10
+export const SCHEMA_VERSION = 11
 
 const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS project (
@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS frames (
   hero_take_id         TEXT,
   workflow_template_id TEXT,
   comfy_workflow_name  TEXT,
+  comfy_workflow_ready INTEGER NOT NULL DEFAULT 0,
   created_at           INTEGER NOT NULL,
   updated_at           INTEGER NOT NULL
 );
@@ -205,6 +206,10 @@ function migrateColumns(db: BetterSqlite3.Database): void {
   // v9 → v10: assets gain a Chromium-playable transcode path (for videos in codecs
   // the UI can't decode natively).
   addColumnIfMissing(db, 'assets', 'preview_path', 'TEXT')
+
+  // v10 → v11: frames track whether a real (non-seed) workflow has been captured, so
+  // the UI can tell "linked but empty" from "ready to generate".
+  addColumnIfMissing(db, 'frames', 'comfy_workflow_ready', 'INTEGER NOT NULL DEFAULT 0')
 }
 
 /** Rebuild frame_inputs to drop a legacy NOT NULL on asset_id. Idempotent. */

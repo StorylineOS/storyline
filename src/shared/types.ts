@@ -50,6 +50,12 @@ export interface Frame {
   workflowTemplateId: string | null
   /** The ComfyUI workflow (userdata name) this frame is linked to, if any. */
   comfyWorkflowName: string | null
+  /**
+   * True once a real (non-seed) workflow graph has been captured for this frame — i.e.
+   * the user has actually built something, not just clicked Link (which seeds a Note).
+   * Lets the UI distinguish "linked but empty" from "ready to generate".
+   */
+  comfyWorkflowReady: boolean
   createdAt: number
   updatedAt: number
 }

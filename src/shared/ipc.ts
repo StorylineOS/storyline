@@ -75,6 +75,7 @@ export const IpcChannels = {
     linkFrame: 'comfy:linkFrame',
     uploadInputs: 'comfy:uploadInputs',
     pullWorkflow: 'comfy:pullWorkflow',
+    saveLiveWorkflow: 'comfy:saveLiveWorkflow',
     pushWorkflow: 'comfy:pushWorkflow',
     pullLatest: 'comfy:pullLatest',
     latestRun: 'comfy:latestRun',
@@ -221,6 +222,11 @@ export interface StorylineApi {
     uploadInputs(frameId: string): Promise<Result<string[]>>
     /** Pull the frame's workflow from ComfyUI into the project copy; true if changed. */
     pullWorkflow(frameId: string): Promise<Result<boolean>>
+    /**
+     * Capture the live (possibly unsaved) graph serialized off the ComfyUI canvas into
+     * the project copy. Returns the updated frame if anything changed, else null.
+     */
+    saveLiveWorkflow(frameId: string, workflow: unknown): Promise<Result<Frame | null>>
     /** Push the project's copy of the frame's workflow to ComfyUI. */
     pushWorkflow(frameId: string): Promise<Result<void>>
     /** Pull ComfyUI's latest output and attach it to the frame as its Output take. */

@@ -51,6 +51,9 @@ export function FrameInspector(): React.JSX.Element | null {
     .filter((a): a is Asset => !!a)
   const orderedIds = inputAssets.map((a) => a.id)
   const linked = !!frame.comfyWorkflowName
+  // Linked only means a name was reserved + a seed pushed. "Ready" means the user has
+  // actually built a real workflow — so we don't imply work exists when it doesn't.
+  const ready = frame.comfyWorkflowReady
 
   const commitName = (): void => {
     const next = draftName.trim()
@@ -204,12 +207,20 @@ export function FrameInspector(): React.JSX.Element | null {
         <Section title="Workflow">
           {linked ? (
             <div className="flex flex-col gap-1.5">
+              <div className="flex items-center gap-1.5 text-[11px]">
+                <span
+                  className={`h-1.5 w-1.5 rounded-full ${ready ? 'bg-green-500' : 'bg-amber-500'}`}
+                />
+                <span className={ready ? 'text-zinc-400' : 'text-amber-400'}>
+                  {ready ? 'Workflow ready' : 'Not built yet — open and add nodes, edits autosave'}
+                </span>
+              </div>
               <button
                 onClick={() => void onLinkOpen()}
                 disabled={busy}
                 className="rounded bg-accent px-2 py-1.5 text-xs font-medium text-white hover:brightness-110 disabled:opacity-40"
               >
-                {busy ? '…' : 'Edit in ComfyUI'}
+                {busy ? '…' : ready ? 'Edit in ComfyUI' : 'Build in ComfyUI'}
               </button>
               <button
                 onClick={openJson}

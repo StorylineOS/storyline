@@ -42,6 +42,8 @@ interface FrameState {
   uploadInputs: (id: string) => Promise<void>
   /** Pull the frame's workflow from ComfyUI into the durable project copy. */
   pullWorkflow: (id: string) => Promise<void>
+  /** Persist the live (possibly unsaved) ComfyUI graph for a frame into the project. */
+  saveLiveWorkflow: (id: string, workflow: unknown) => Promise<void>
   pullResult: (id: string) => Promise<void>
   captureOutput: (frameId: string, output: ComfyOutput) => Promise<void>
   exportFrames: () => Promise<void>
@@ -241,6 +243,19 @@ export const useFrameStore = create<FrameState>((set, get) => ({
       await window.storyline.comfy.pullWorkflow(id)
     } catch {
       // best-effort sync — a transient failure shouldn't surface as an error
+    }
+  },
+
+  saveLiveWorkflow: async (id, workflow) => {
+    try {
+      const res = await window.storyline.comfy.saveLiveWorkflow(id, workflow)
+      // Merge the updated frame so the inspector's "ready" state reflects the capture.
+      if (res.ok && res.value) {
+        const frame = res.value
+        set((s) => ({ frames: s.frames.map((sh) => (sh.id === frame.id ? frame : sh)) }))
+      }
+    } catch {
+      // best-effort autosave — a transient failure shouldn't surface as an error
     }
   },
 

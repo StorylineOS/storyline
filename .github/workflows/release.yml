@@ -1,12 +1,10 @@
 name: Build & Release
 
 # Build installers for macOS, Windows and Linux and publish them to this repo's
-# GitHub Releases. Triggered on every push to main; electron-builder publishes a release
-# for the version in package.json (bump it before pushing to cut a new release).
+# GitHub Releases. Triggered manually from the Actions tab; electron-builder publishes a
+# release for the version in package.json (bump it before running to cut a new release).
 # Each OS builds on its own runner so the native SQLite module is compiled per platform.
 on:
-  push:
-    branches: ['main']
   workflow_dispatch: {}
 
 # electron-builder needs to create/update releases on this repo.

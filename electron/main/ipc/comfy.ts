@@ -7,6 +7,7 @@ import {
   linkFrameWorkflow,
   uploadFrameInputs,
   pullWorkflowToProject,
+  saveLiveWorkflow,
   pushWorkflowFromProject,
   pullLatestToFrame,
   latestRun,
@@ -25,6 +26,12 @@ function asOutput(v: unknown): ComfyOutput {
   return v as ComfyOutput
 }
 
+/** A serialized workflow graph from the renderer must at least be a plain object. */
+function asWorkflow(v: unknown): Record<string, unknown> {
+  if (typeof v !== 'object' || v === null || Array.isArray(v)) throw new Error('Invalid workflow.')
+  return v as Record<string, unknown>
+}
+
 export function registerComfyHandlers(): void {
   handle<[], ComfyStatus>(IpcChannels.comfy.status, () => ping())
   handle<[string], Frame>(IpcChannels.comfy.linkFrame, (frameId) =>
@@ -35,6 +42,9 @@ export function registerComfyHandlers(): void {
   )
   handle<[string], boolean>(IpcChannels.comfy.pullWorkflow, (frameId) =>
     pullWorkflowToProject(str(frameId, 'frame id')),
+  )
+  handle<[string, unknown], Frame | null>(IpcChannels.comfy.saveLiveWorkflow, (frameId, workflow) =>
+    saveLiveWorkflow(str(frameId, 'frame id'), asWorkflow(workflow)),
   )
   handle<[string], void>(IpcChannels.comfy.pushWorkflow, (frameId) =>
     pushWorkflowFromProject(str(frameId, 'frame id')),

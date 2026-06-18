@@ -67,6 +67,8 @@ const api: StorylineApi = {
     linkFrame: (frameId: string) => ipcRenderer.invoke(IpcChannels.comfy.linkFrame, frameId),
     uploadInputs: (frameId: string) => ipcRenderer.invoke(IpcChannels.comfy.uploadInputs, frameId),
     pullWorkflow: (frameId: string) => ipcRenderer.invoke(IpcChannels.comfy.pullWorkflow, frameId),
+    saveLiveWorkflow: (frameId: string, workflow: unknown) =>
+      ipcRenderer.invoke(IpcChannels.comfy.saveLiveWorkflow, frameId, workflow),
     pushWorkflow: (frameId: string) => ipcRenderer.invoke(IpcChannels.comfy.pushWorkflow, frameId),
     pullLatest: (frameId: string) => ipcRenderer.invoke(IpcChannels.comfy.pullLatest, frameId),
     latestRun: () => ipcRenderer.invoke(IpcChannels.comfy.latestRun),

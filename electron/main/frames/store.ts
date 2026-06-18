@@ -20,6 +20,7 @@ interface FrameRow {
   hero_take_id: string | null
   workflow_template_id: string | null
   comfy_workflow_name: string | null
+  comfy_workflow_ready: number
   created_at: number
   updated_at: number
 }
@@ -45,6 +46,7 @@ function rowToFrame(row: FrameRow): Frame {
     heroTakeId: row.hero_take_id,
     workflowTemplateId: row.workflow_template_id,
     comfyWorkflowName: row.comfy_workflow_name,
+    comfyWorkflowReady: row.comfy_workflow_ready === 1,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -125,7 +127,8 @@ function createFrame(asset: { id: string; kind: AssetKind }): Frame {
     db.prepare('SELECT COUNT(*) AS n FROM frames WHERE sequence_id = ?').get(seqId) as { n: number }
   ).n
   const now = Date.now()
-  const frame: Frame = {
+  // Bound params (no comfy_workflow_ready: it defaults to 0 in the schema).
+  const frame = {
     id: randomUUID(),
     sequenceId: seqId,
     name: String(count + 1),
@@ -149,7 +152,7 @@ function createFrame(asset: { id: string; kind: AssetKind }): Frame {
     frame.id,
     asset.id,
   )
-  return frame
+  return { ...frame, comfyWorkflowReady: false }
 }
 
 function assetById(id: string): { id: string; kind: AssetKind } {
@@ -172,11 +175,12 @@ export function createEmptyFrame(): Frame {
     db.prepare('SELECT COUNT(*) AS n FROM frames WHERE sequence_id = ?').get(seqId) as { n: number }
   ).n
   const now = Date.now()
-  const frame: Frame = {
+  // Bound params (no comfy_workflow_ready: it defaults to 0 in the schema).
+  const frame = {
     id: randomUUID(),
     sequenceId: seqId,
     name: String(count + 1),
-    kind: 'image',
+    kind: 'image' as FrameKind,
     position: count,
     inputAssetId: null,
     heroTakeId: null,
@@ -190,7 +194,7 @@ export function createEmptyFrame(): Frame {
        (id, sequence_id, name, kind, position, input_asset_id, hero_take_id, workflow_template_id, comfy_workflow_name, created_at, updated_at)
      VALUES (@id, @sequenceId, @name, @kind, @position, @inputAssetId, @heroTakeId, @workflowTemplateId, @comfyWorkflowName, @createdAt, @updatedAt)`,
   ).run(frame)
-  return frame
+  return { ...frame, comfyWorkflowReady: false }
 }
 
 /**
@@ -487,8 +491,19 @@ export function linkWorkflow(frameId: string, name: string): Frame {
 export function unlinkWorkflow(frameId: string): Frame {
   getFrame(frameId)
   getDb()
-    .prepare('UPDATE frames SET comfy_workflow_name = NULL, updated_at = ? WHERE id = ?')
+    .prepare(
+      'UPDATE frames SET comfy_workflow_name = NULL, comfy_workflow_ready = 0, updated_at = ? WHERE id = ?',
+    )
     .run(Date.now(), frameId)
+  return getFrame(frameId)
+}
+
+/** Mark whether a real (non-seed) workflow has been captured for this frame. */
+export function setWorkflowReady(frameId: string, ready: boolean): Frame {
+  getFrame(frameId)
+  getDb()
+    .prepare('UPDATE frames SET comfy_workflow_ready = ?, updated_at = ? WHERE id = ?')
+    .run(ready ? 1 : 0, Date.now(), frameId)
   return getFrame(frameId)
 }
 
@@ -505,7 +520,9 @@ export function cloneFrame(frameId: string): Frame {
     db.prepare('SELECT COUNT(*) AS n FROM frames WHERE sequence_id = ?').get(seqId) as { n: number }
   ).n
   const now = Date.now()
-  const clone: Frame = {
+  // Bound params (no comfy_workflow_ready: it defaults to 0 in the schema). The clone
+  // starts unlinked, so it isn't "ready" until it's linked and built itself.
+  const clone = {
     id: randomUUID(),
     sequenceId: seqId,
     name: `${src.name} copy`,
@@ -548,5 +565,5 @@ export function cloneFrame(frameId: string): Frame {
       copyFileSync(srcWf, join(folder, 'workflows', `${clone.id}.json`))
     }
   }
-  return clone
+  return { ...clone, comfyWorkflowReady: false }
 }
