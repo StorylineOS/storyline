@@ -31,15 +31,18 @@ asarUnpack:
 
 mac:
   category: public.app-category.video
-  # One Apple Silicon (arm64) .dmg.
+  # Two .dmgs: Apple Silicon (arm64) and Intel (x64).
   target:
     - target: dmg
       arch: arm64
+    - target: dmg
+      arch: x64
   # Unsigned local builds: skip notarization. For distribution, add signing creds.
   identity: null
 
 dmg:
-  artifactName: ${name}-${version}.${ext}
+  # ${arch} keeps the arm64 and x64 dmgs from colliding on the same filename.
+  artifactName: ${name}-${version}-${arch}.${ext}
 
 win:
   # One x64 installer (covers virtually all Windows PCs).

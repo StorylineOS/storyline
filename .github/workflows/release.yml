@@ -15,8 +15,19 @@ jobs:
   release:
     strategy:
       fail-fast: false
+      # Each entry packages on a runner whose CPU matches the target arch, so the
+      # native better-sqlite3 module is compiled for the arch it ships in. The mac
+      # dmgs are split: Apple Silicon on the arm64 runner, Intel on macos-13 (x64).
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-latest]
+        include:
+          - os: macos-latest # Apple Silicon
+            args: --mac --arm64
+          - os: macos-13 # Intel — tag the dmg with -intel as well as -x64
+            args: --mac --x64 -c.dmg.artifactName='${name}-${version}-x64-intel.${ext}'
+          - os: windows-latest
+            args: --win
+          - os: ubuntu-latest
+            args: --linux
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -41,6 +52,6 @@ jobs:
       - name: Build & publish
         run: |
           npm run build
-          npx electron-builder --publish always
+          npx electron-builder ${{ matrix.args }} --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -70,7 +70,7 @@ Your media, your models, your machine. Inline Studio just gives the work a narra
 
 Grab a prebuilt installer from the [latest release](../../releases/latest) and open it:
 
-- **macOS (Apple Silicon):** download the `.dmg`, open it, and drag Inline Studio into Applications.
+- **macOS:** download the `.dmg` for your chip — `arm64` for Apple Silicon (M1/M2/M3…), `x64` for Intel Macs — open it, and drag Inline Studio into Applications.
 - **Windows:** download the `-setup.exe` and run it.
 - **Linux:** download the `.AppImage`, make it executable (`chmod +x Inline Studio*.AppImage`), and run it.
 
@@ -110,19 +110,19 @@ python main.py --enable-cors-header     # then paste http://127.0.0.1:8188 in-ap
 To produce an installer you can hand to someone, package it for your platform:
 
 ```bash
-npm run package:mac      # .dmg + .zip in dist/  (Apple Silicon + Intel)
+npm run package:mac      # arm64 + x64 .dmg in dist/
 npm run package:win      # NSIS .exe installer in dist/
 npm run package:linux    # AppImage in dist/
 ```
 
 A few things to know:
 
-- **Build each OS on its own OS.** Inline Studio ships a native module (SQLite), which has to be compiled for the target machine. So build the Mac app on a Mac and the Windows app on Windows. The easiest way to get both from one place is CI: run `package:mac` on a macOS runner and `package:win` on a Windows runner.
+- **Build each OS — and each Mac arch — on matching hardware.** Inline Studio ships a native module (SQLite), which has to be compiled for the target machine, so build the Mac app on a Mac and the Windows app on Windows. The same applies to Mac CPU arch: an Intel (`x64`) dmg has to be built on an Intel Mac and an Apple Silicon (`arm64`) dmg on an Apple Silicon Mac — cross-building bundles the wrong native binary. CI handles this for you (see below).
 - **After packaging, `npm run dev` may complain about the native module.** Packaging rebuilds SQLite for the target architecture; run `npm run rebuild` to restore it for local development.
 - **The builds are unsigned.** On first launch macOS and Windows will warn about an unidentified developer. On a Mac, right-click the app and choose Open (or remove the quarantine flag with `xattr -dr com.apple.quarantine /Applications/Inline Studio.app`). For real distribution you'll want code signing and notarization.
 - **App icon.** The icon lives in `build/` (`icon.png` is the source). Replace it there and re-package to rebrand.
 
-Releases are automated: pushing a version tag (`npm version patch && git push --follow-tags`) builds installers for macOS (Apple Silicon), Windows, and Linux on GitHub Actions and uploads them to a draft GitHub Release.
+Releases are automated: bump the version in `package.json` and run the **Build & Release** workflow from the Actions tab. It builds installers for macOS (Apple Silicon **and** Intel — each on its own runner), Windows, and Linux on GitHub Actions and uploads them to a draft GitHub Release.
 
 ---
 
