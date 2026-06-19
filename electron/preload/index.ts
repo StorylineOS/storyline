@@ -3,7 +3,7 @@
  * `window.inlineStudio` via contextBridge — no Node, no ipcRenderer, no raw channels
  * leak into the renderer (see CLAUDE.md security baseline + layering rule).
  */
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import {
   IpcChannels,
   type InlineStudioApi,
@@ -39,6 +39,8 @@ const api: InlineStudioApi = {
   assets: {
     importDialog: (folderId: string | null) =>
       ipcRenderer.invoke(IpcChannels.assets.importDialog, folderId),
+    importPaths: (paths: string[], folderId: string | null) =>
+      ipcRenderer.invoke(IpcChannels.assets.importPaths, paths, folderId),
     list: () => ipcRenderer.invoke(IpcChannels.assets.list),
     delete: (assetId: string) => ipcRenderer.invoke(IpcChannels.assets.delete, assetId),
   },
@@ -157,6 +159,8 @@ const api: InlineStudioApi = {
     onClaudeError: (callback: (e: ClaudeErrorEvent) => void) =>
       subscribe(IpcChannels.events.claudeError, callback),
   },
+  // Electron 32+: dropped File objects no longer expose `.path`; webUtils resolves it.
+  getPathForFile: (file: File) => webUtils.getPathForFile(file),
 }
 
 /** Subscribe to a payload-carrying main→renderer event; returns an unsubscribe fn. */

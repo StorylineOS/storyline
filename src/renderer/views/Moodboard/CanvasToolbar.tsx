@@ -1,10 +1,7 @@
-import { useState } from 'react'
-
 /**
- * Floating bottom-left action button. Click the accent + to expand node-creation
- * actions (Frame, Layer, Preview, Text); the + rotates into a close (×) while open.
+ * Floating bottom-left widget bar: a vertical strip of node-creation buttons (Frame,
+ * Layer, Preview, Text), always visible. Each adds a node at the current canvas center.
  * It sits inside the canvas area, so it tracks the Assets panel as it opens/resizes.
- * Each action adds a node at the current canvas center and collapses the menu.
  */
 export function CanvasToolbar({
   onAddFrame,
@@ -17,56 +14,25 @@ export function CanvasToolbar({
   onAddPreview: () => void
   onAddText: () => void
 }): React.JSX.Element {
-  const [open, setOpen] = useState(false)
-
-  const run = (fn: () => void) => (): void => {
-    fn()
-    setOpen(false)
-  }
-
   return (
-    <div className="absolute bottom-4 left-4 z-10 flex flex-col items-start gap-2">
-      {open && (
-        <>
-          <SubAction label="Add frame" onClick={run(onAddFrame)}>
-            <FrameIcon />
-          </SubAction>
-          <SubAction label="Add layer" onClick={run(onAddLayer)}>
-            <LayerIcon />
-          </SubAction>
-          <SubAction label="Add preview" onClick={run(onAddPreview)}>
-            <ImageIcon />
-          </SubAction>
-          <SubAction label="Add text" onClick={run(onAddText)}>
-            <span className="text-base font-bold leading-none">T</span>
-          </SubAction>
-        </>
-      )}
-
-      <button
-        onClick={() => setOpen((o) => !o)}
-        title={open ? 'Close' : 'Add to canvas'}
-        aria-label={open ? 'Close' : 'Add to canvas'}
-        aria-expanded={open}
-        className="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-panel shadow-lg hover:brightness-110"
-      >
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          className={`h-5 w-5 transition-transform duration-200 ${open ? 'rotate-45' : ''}`}
-        >
-          <line x1="12" y1="5" x2="12" y2="19" />
-          <line x1="5" y1="12" x2="19" y2="12" />
-        </svg>
-      </button>
+    <div className="absolute bottom-4 left-4 z-10 flex flex-col gap-1 rounded-lg border border-border bg-panel/95 p-1 shadow-lg backdrop-blur">
+      <ToolButton label="Add frame" onClick={onAddFrame}>
+        <FrameIcon />
+      </ToolButton>
+      <ToolButton label="Add layer" onClick={onAddLayer}>
+        <LayerIcon />
+      </ToolButton>
+      <ToolButton label="Add preview" onClick={onAddPreview}>
+        <ImageIcon />
+      </ToolButton>
+      <ToolButton label="Add text" onClick={onAddText}>
+        <span className="text-base font-bold leading-none">T</span>
+      </ToolButton>
     </div>
   )
 }
 
-function SubAction({
+function ToolButton({
   label,
   onClick,
   children,
@@ -76,19 +42,18 @@ function SubAction({
   children: React.ReactNode
 }): React.JSX.Element {
   return (
-    <div className="flex items-center gap-2">
-      <button
-        onClick={onClick}
-        title={label}
-        aria-label={label}
-        className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-panel text-zinc-200 shadow-md hover:border-accent hover:bg-surface hover:text-white"
-      >
-        {children}
-      </button>
-      <span className="rounded bg-black/70 px-1.5 py-0.5 text-[11px] text-zinc-100 shadow">
+    <button
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      className="group relative flex h-9 w-9 items-center justify-center rounded-md text-accent hover:bg-surface hover:brightness-110"
+    >
+      {children}
+      {/* Hover label, to the right since the bar hugs the left edge. */}
+      <span className="pointer-events-none absolute left-full ml-2 whitespace-nowrap rounded bg-black/80 px-1.5 py-0.5 text-[11px] text-zinc-100 opacity-0 shadow transition-opacity group-hover:opacity-100">
         {label}
       </span>
-    </div>
+    </button>
   )
 }
 

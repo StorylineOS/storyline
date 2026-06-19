@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -13,6 +13,7 @@ import {
   type Node,
   type Edge,
   type Connection,
+  type FinalConnectionState,
   type NodeChange,
   type NodeTypes,
   type EdgeTypes,
@@ -155,6 +156,14 @@ function Board(): React.JSX.Element {
   // In-memory clipboard for copy/paste; pasteCount cascades repeated pastes.
   const clipboard = useRef<MoodboardItem[]>([])
   const pasteCount = useRef(0)
+  // "Connect to…" menu shown when an output link is dropped on empty canvas.
+  const [connectMenu, setConnectMenu] = useState<{
+    fromItemId: string
+    flowX: number
+    flowY: number
+    menuX: number
+    menuY: number
+  } | null>(null)
 
   useEffect(() => {
     void load()
@@ -289,6 +298,58 @@ function Board(): React.JSX.Element {
     }
   }
 
+  // Dropping an OUTPUT link on empty canvas suggests what to create next (preview/frame).
+  const onConnectEnd = (event: MouseEvent | TouchEvent, state: FinalConnectionState): void => {
+    if (state.isValid) return // landed on a real handle → onConnect already wired it
+    if (state.fromHandle?.type !== 'source') return // only suggest from output handles
+    const fromItemId = state.fromNode?.id
+    if (!fromItemId) return
+    const pt = 'changedTouches' in event ? event.changedTouches[0] : event
+    if (!pt) return
+    const point = { x: pt.clientX, y: pt.clientY }
+    const flow = screenToFlowPosition(point)
+    const rect = wrapperRef.current?.getBoundingClientRect()
+    setConnectMenu({
+      fromItemId,
+      flowX: flow.x,
+      flowY: flow.y,
+      menuX: rect ? point.x - rect.left : point.x,
+      menuY: rect ? point.y - rect.top : point.y,
+    })
+  }
+
+  /** Create a preview node and wire the dropped output into it. */
+  const suggestPreview = async (): Promise<void> => {
+    const m = connectMenu
+    setConnectMenu(null)
+    if (!m) return
+    const item = await addPreview(m.flowX, m.flowY)
+    if (item) await connect(m.fromItemId, item.id, 'out', 'in')
+  }
+
+  /** Create a downstream frame that takes the dropped output as its input. */
+  const suggestFrame = async (): Promise<void> => {
+    const m = connectMenu
+    setConnectMenu(null)
+    if (!m) return
+    const item = await addEmptyFrame(m.flowX, m.flowY)
+    if (!item) return
+    await connect(m.fromItemId, item.id, 'out', 'in')
+    // Resolve the source frame (the output's frame, or the frame feeding a preview) and
+    // wire it as the new frame's input — its hero take flows in at generate time.
+    const fromItem = items.find((it) => it.id === m.fromItemId)
+    let sourceFrameId: string | undefined
+    if (fromItem?.type === 'frame') {
+      sourceFrameId = fromItem.frameId ?? undefined
+    } else if (fromItem?.type === 'preview') {
+      const feed = connectors.find((k) => k.toItemId === fromItem.id)
+      sourceFrameId = feed
+        ? (items.find((it) => it.id === feed.fromItemId)?.frameId ?? undefined)
+        : undefined
+    }
+    if (sourceFrameId && item.frameId) await addSourceInput(item.frameId, sourceFrameId)
+  }
+
   const onDrop = (e: React.DragEvent): void => {
     e.preventDefault()
     const drop = screenToFlowPosition({ x: e.clientX, y: e.clientY })
@@ -306,8 +367,20 @@ function Board(): React.JSX.Element {
     }
 
     const ids = getAssetDragIds(e.dataTransfer)
-    if (ids.length === 0) return
-    ids.forEach((assetId, i) => {
+    if (ids.length === 0) {
+      // Files dropped from the OS → import into the library, then place as frames.
+      const paths = Array.from(e.dataTransfer.files ?? [])
+        .map((f) => window.inlineStudio.getPathForFile(f))
+        .filter((p) => p.length > 0)
+      if (paths.length > 0) void importDroppedFiles(paths, drop)
+      return
+    }
+    placeAssetsAt(ids, drop)
+  }
+
+  /** Place existing library assets as frames at/near a drop point (cascaded). */
+  const placeAssetsAt = (assetIds: string[], drop: { x: number; y: number }): void => {
+    assetIds.forEach((assetId, i) => {
       const abs = { x: drop.x + i * 24, y: drop.y + i * 24 }
       const layer = layerAt(abs)
       // Children store positions relative to their layer.
@@ -315,6 +388,20 @@ function Board(): React.JSX.Element {
       const y = layer ? abs.y - layer.y : abs.y
       void addFrameFromAssetInLayer(assetId, x, y, layer?.id ?? null)
     })
+  }
+
+  /** Import OS files (by absolute path), then place the new assets as frames. */
+  const importDroppedFiles = async (
+    paths: string[],
+    drop: { x: number; y: number },
+  ): Promise<void> => {
+    const res = await window.inlineStudio.assets.importPaths(paths, null)
+    if (!res.ok || res.value.length === 0) return
+    await loadAssets() // surface the new media in the Assets panel too
+    placeAssetsAt(
+      res.value.map((a) => a.id),
+      drop,
+    )
   }
 
   /** On drag stop, persist position and (for frames/previews) re-parent into/out of a layer. */
@@ -376,6 +463,7 @@ function Board(): React.JSX.Element {
           onNodeDragStop={onNodeDragStop}
           onNodesDelete={(deleted) => deleted.forEach((n) => void deleteItem(n.id))}
           onConnect={onConnect}
+          onConnectEnd={onConnectEnd}
           onEdgesDelete={(deleted) => deleted.forEach((e) => void disconnect(e.id))}
           // Mirror the viewport so the assistant can use it as a "place here" spot.
           onMove={() => setCanvasCenter(centre())}
@@ -383,12 +471,42 @@ function Board(): React.JSX.Element {
           proOptions={{ hideAttribution: true }}
           minZoom={0.1}
           maxZoom={4}
+          // Only mount on-screen nodes/edges. Beyond perf, this keeps the canvas's GPU
+          // compositing layer small — with nodes spread far apart, the full layer can
+          // exceed the GPU's max texture size and render as grey/blank when scrolling.
+          onlyRenderVisibleElements
           fitView
         >
           <Background gap={22} size={2.5} color="#525a66" />
         </ReactFlow>
 
         {items.length === 0 && <EmptyCanvasHint />}
+
+        {connectMenu && (
+          <>
+            <div className="absolute inset-0 z-20" onClick={() => setConnectMenu(null)} />
+            <div
+              className="absolute z-30 flex w-40 flex-col overflow-hidden rounded-md border border-border bg-panel text-xs shadow-xl"
+              style={{ left: connectMenu.menuX, top: connectMenu.menuY }}
+            >
+              <div className="border-b border-border px-2.5 py-1 text-[10px] uppercase tracking-wide text-zinc-500">
+                Connect to…
+              </div>
+              <button
+                onClick={() => void suggestPreview()}
+                className="px-2.5 py-1.5 text-left text-zinc-200 hover:bg-surface"
+              >
+                Preview node
+              </button>
+              <button
+                onClick={() => void suggestFrame()}
+                className="px-2.5 py-1.5 text-left text-zinc-200 hover:bg-surface"
+              >
+                New frame (input)
+              </button>
+            </div>
+          </>
+        )}
 
         <SelectionActions />
 

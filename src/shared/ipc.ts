@@ -49,6 +49,7 @@ export const IpcChannels = {
   },
   assets: {
     importDialog: 'assets:importDialog',
+    importPaths: 'assets:importPaths',
     list: 'assets:list',
     delete: 'assets:delete',
   },
@@ -186,6 +187,8 @@ export interface InlineStudioApi {
      * under `folderId` (null = root), and return the new rows.
      */
     importDialog(folderId: string | null): Promise<Result<Asset[]>>
+    /** Import media by absolute path (e.g. OS files dropped onto the canvas). */
+    importPaths(paths: string[], folderId: string | null): Promise<Result<Asset[]>>
     /** All assets in the open project, newest first. */
     list(): Promise<Result<Asset[]>>
     /** Delete an asset (file + row); blocked if used by a frame. */
@@ -321,6 +324,8 @@ export interface InlineStudioApi {
     /** Open an http(s) URL in the user's default browser. */
     openExternal(url: string): Promise<Result<void>>
   }
+  /** Resolve the absolute path of a File dropped from the OS (Electron webUtils). Sync. */
+  getPathForFile(file: File): string
   events: {
     /** Subscribe to "asset library changed" pushes from main. Returns an unsubscribe fn. */
     onLibraryChanged(callback: () => void): () => void

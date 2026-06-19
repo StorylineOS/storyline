@@ -24,17 +24,19 @@ export function TextNode({ id, data, selected }: NodeProps): React.JSX.Element {
   const itemRef = useRef(item)
   itemRef.current = item
 
-  // Grow the node's height so all the text is visible (e.g. after pasting a long
-  // block). Only grows — `h-full` makes scrollHeight ≈ clientHeight once it fits,
-  // so this converges in one pass.
+  // Keep the node's height wrapped tightly around the text — both growing (e.g.
+  // after pasting a long block) and shrinking, so the selectable/clickable box
+  // never extends past the visible text into empty canvas. The editable div sizes
+  // to its content (no `h-full`), so `scrollHeight` is the true text height; we add
+  // the fixed NodeFrame chrome (p-1 padding + 1px border, top and bottom).
+  const CHROME = 10
   const fitHeight = useCallback((): void => {
     const el = ref.current
     const it = itemRef.current
     if (!el || !it) return
-    const chrome = it.height - el.clientHeight // padding + border, measured live
-    const needed = el.scrollHeight + chrome
-    // Programmatic auto-grow — don't pollute the undo history.
-    if (needed > 0 && needed - it.height > 1) void updateItem(id, { height: needed }, false)
+    const needed = Math.max(32, el.scrollHeight + CHROME)
+    // Programmatic auto-fit — don't pollute the undo history.
+    if (Math.abs(needed - it.height) > 1) void updateItem(id, { height: needed }, false)
   }, [id, updateItem])
 
   const style: CSSProperties = {
@@ -73,7 +75,7 @@ export function TextNode({ id, data, selected }: NodeProps): React.JSX.Element {
         <div
           ref={ref}
           style={style}
-          className={`h-full w-full whitespace-pre-wrap break-words px-1 outline-none ${
+          className={`w-full whitespace-pre-wrap break-words px-1 outline-none ${
             editing ? 'nodrag cursor-text' : 'cursor-grab'
           }`}
           contentEditable={editing}

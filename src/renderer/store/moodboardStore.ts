@@ -41,9 +41,10 @@ interface MoodboardState {
     y: number,
     parentId: string | null,
   ) => Promise<void>
-  /** Create an empty frame and place its node on the canvas. */
-  addEmptyFrame: (x: number, y: number) => Promise<void>
-  addPreview: (x: number, y: number) => Promise<void>
+  /** Create an empty frame and place its node on the canvas. Returns the new item. */
+  addEmptyFrame: (x: number, y: number) => Promise<MoodboardItem | null>
+  /** Add a Preview node. Returns the new item (for connection-drop suggestions). */
+  addPreview: (x: number, y: number) => Promise<MoodboardItem | null>
   addLayer: (x: number, y: number) => Promise<void>
   /** Place an existing asset on the board, parented to a layer when given. */
   addFrameFromAssetInLayer: (
@@ -256,12 +257,17 @@ export const useMoodboardStore = create<MoodboardState>((set, get) => ({
     try {
       get().record()
       const res = await window.inlineStudio.moodboard.addEmptyFrame(x, y)
-      if (!res.ok) return set({ error: res.error })
+      if (!res.ok) {
+        set({ error: res.error })
+        return null
+      }
       set((s) => ({ items: [...s.items, res.value] }))
       // The new frame exists in main — refresh the frame store so its node resolves.
       await useFrameStore.getState().load()
+      return res.value
     } catch (e) {
       set({ error: ipcErrorMessage(e) })
+      return null
     }
   },
 
@@ -285,10 +291,15 @@ export const useMoodboardStore = create<MoodboardState>((set, get) => ({
     try {
       get().record()
       const res = await window.inlineStudio.moodboard.addPreview(x, y)
-      if (!res.ok) return set({ error: res.error })
+      if (!res.ok) {
+        set({ error: res.error })
+        return null
+      }
       set((s) => ({ items: [...s.items, res.value] }))
+      return res.value
     } catch (e) {
       set({ error: ipcErrorMessage(e) })
+      return null
     }
   },
 

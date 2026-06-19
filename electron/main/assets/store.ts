@@ -222,6 +222,18 @@ export async function importViaDialog(folderId: string | null): Promise<Asset[]>
   return imported
 }
 
+/** Import media by absolute path (e.g. files dropped from the OS); skips unsupported kinds. */
+export async function importPaths(paths: string[], folderId: string | null): Promise<Asset[]> {
+  if (!getOpenProjectFolder()) throw new Error('Open a project first.')
+  const imported: Asset[] = []
+  for (const p of paths) {
+    if (typeof p !== 'string' || p.length === 0) continue
+    const asset = await importFile(p, folderId)
+    if (asset) imported.push(asset)
+  }
+  return imported
+}
+
 export function listAssets(): Asset[] {
   const rows = getDb().prepare('SELECT * FROM assets ORDER BY created_at DESC').all() as AssetRow[]
   return rows.map(rowToAsset)

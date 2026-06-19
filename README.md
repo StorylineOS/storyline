@@ -6,7 +6,7 @@
 
 ComfyUI is the most capable generative engine currently: image, video, audio, LLM, every new model lands there first. But it asks you to think in node graphs and execution order. Filmmakers think in frames, scenes, and sequences. Inline Studio sits in between: you compose your film on a free-form canvas and work frame by frame, while ComfyUI quietly does the generation behind each one.
 
-![Inline Studio canvas](screenshots/image.png)
+![Inline Studio canvas](screenshots/screenshot-dashboard.png)
 
 > **Status: active development.** The canvas, the project model, the ComfyUI bridge, and the Claude assistant are working today. Timeline editing, a preview player, and video export are next.
 
@@ -23,6 +23,8 @@ Project  →  Sequence  →  Frame  →  Take[]
 ```
 
 A project is a single portable `.inlinestudio` folder you can move, back up, or hand to a collaborator.
+
+**Export a project to share it.** From the home screen, **Export** zips up the whole project — its database, every imported asset, all the generated takes, and the per-frame ComfyUI workflows — into one archive. Hand that file to a collaborator and they have everything needed to open the project and re-run it exactly, nothing left dangling on your machine.
 
 ---
 

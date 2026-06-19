@@ -18,6 +18,7 @@ interface AssetState {
 
   load: () => Promise<void>
   import: () => Promise<void>
+  importPaths: (paths: string[]) => Promise<void>
   remove: (assetId: string) => Promise<void>
   createFolder: (name: string) => Promise<void>
   deleteFolder: (id: string) => Promise<void>
@@ -53,6 +54,24 @@ export const useAssetStore = create<AssetState>((set, get) => ({
     set({ loading: true, error: null })
     try {
       const res = await window.inlineStudio.assets.importDialog(get().currentFolderId)
+      if (!res.ok) return set({ loading: false, error: res.error })
+      const added = res.value
+      set((s) => ({
+        assets: [...added, ...s.assets],
+        selectedId: added[0]?.id ?? s.selectedId,
+        loading: false,
+      }))
+    } catch (e) {
+      set({ loading: false, error: ipcErrorMessage(e) })
+    }
+  },
+
+  // Import OS files (e.g. dropped from Finder/Explorer) into the current folder.
+  importPaths: async (paths: string[]) => {
+    if (paths.length === 0) return
+    set({ loading: true, error: null })
+    try {
+      const res = await window.inlineStudio.assets.importPaths(paths, get().currentFolderId)
       if (!res.ok) return set({ loading: false, error: res.error })
       const added = res.value
       set((s) => ({

@@ -17,6 +17,7 @@ export function LibraryPanel(): React.JSX.Element {
     error,
     load,
     import: importAssets,
+    importPaths,
     remove,
     createFolder,
     deleteFolder,
@@ -26,6 +27,29 @@ export function LibraryPanel(): React.JSX.Element {
   const [newFolderName, setNewFolderName] = useState<string | null>(null)
   // Multi-selection for dragging several assets at once (⌘/Ctrl-click to toggle).
   const [dragSel, setDragSel] = useState<string[]>([])
+  // Highlight while OS files are dragged over the panel.
+  const [fileOver, setFileOver] = useState(false)
+
+  // True when a drag carries OS files (Finder/Explorer), not an internal asset/frame drag.
+  const isFileDrag = (e: React.DragEvent): boolean =>
+    Array.from(e.dataTransfer.types).includes('Files')
+
+  const onDragOver = (e: React.DragEvent): void => {
+    if (!isFileDrag(e)) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'copy'
+    if (!fileOver) setFileOver(true)
+  }
+
+  const onDrop = (e: React.DragEvent): void => {
+    if (!isFileDrag(e)) return
+    e.preventDefault()
+    setFileOver(false)
+    const paths = Array.from(e.dataTransfer.files ?? [])
+      .map((f) => window.inlineStudio.getPathForFile(f))
+      .filter((p) => p.length > 0)
+    if (paths.length > 0) void importPaths(paths)
+  }
 
   const toggleDragSel = (id: string): void =>
     setDragSel((sel) => (sel.includes(id) ? sel.filter((x) => x !== id) : [...sel, id]))
@@ -46,7 +70,24 @@ export function LibraryPanel(): React.JSX.Element {
   }
 
   return (
-    <div className="flex h-full flex-col bg-surface">
+    <div
+      className={`relative flex h-full flex-col bg-surface ${
+        fileOver ? 'ring-2 ring-inset ring-accent' : ''
+      }`}
+      onDragOver={onDragOver}
+      onDragLeave={(e) => {
+        // Only clear when the cursor actually leaves the panel, not child elements.
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setFileOver(false)
+      }}
+      onDrop={onDrop}
+    >
+      {fileOver && (
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-accent/5">
+          <span className="rounded-md border border-accent bg-panel/90 px-3 py-1.5 text-xs text-accent">
+            Drop to import into {path.length > 0 ? path[path.length - 1].name : 'Library'}
+          </span>
+        </div>
+      )}
       <Breadcrumb
         path={path}
         onNavigate={navigate}
