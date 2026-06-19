@@ -13,20 +13,28 @@ permissions:
 
 jobs:
   release:
+    # `label` gives each matrix job a clean name (otherwise Actions builds the job
+    # title from every field, including the long artifactName override below).
+    name: release (${{ matrix.label }})
     strategy:
       fail-fast: false
       # Each entry packages on a runner whose CPU matches the target arch, so the
       # native better-sqlite3 module is compiled for the arch it ships in. The mac
-      # dmgs are split: Apple Silicon on the arm64 runner, Intel on macos-13 (x64).
+      # dmgs are split: Apple Silicon on the arm64 runner, Intel (x64) on the
+      # macos-15-intel runner (macos-13 was retired Dec 2025).
       matrix:
         include:
           - os: macos-latest # Apple Silicon
+            label: macOS Apple Silicon
             args: --mac --arm64
-          - os: macos-13 # Intel — tag the dmg with -intel as well as -x64
+          - os: macos-15-intel # Intel (x86_64) standard runner — tag the dmg with -intel as well as -x64
+            label: macOS Intel
             args: --mac --x64 -c.dmg.artifactName='${name}-${version}-x64-intel.${ext}'
           - os: windows-latest
+            label: Windows
             args: --win
           - os: ubuntu-latest
+            label: Linux
             args: --linux
     runs-on: ${{ matrix.os }}
     steps:
