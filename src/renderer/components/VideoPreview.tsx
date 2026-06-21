@@ -13,11 +13,13 @@ export function VideoPreview({
   poster,
   className,
   onLoadedMetadata,
+  onContextMenu,
 }: {
   src: string
   poster?: string
   className?: string
   onLoadedMetadata?: React.ReactEventHandler<HTMLVideoElement>
+  onContextMenu?: React.MouseEventHandler<HTMLVideoElement>
 }): React.JSX.Element {
   const ref = useRef<HTMLVideoElement>(null)
   // Plays remaining in the current run (the initial autoplay starts at MAX_PLAYS).
@@ -54,6 +56,7 @@ export function VideoPreview({
       onEnded={onEnded}
       onMouseEnter={onMouseEnter}
       onLoadedMetadata={onLoadedMetadata}
+      onContextMenu={onContextMenu}
       className={className}
     />
   )

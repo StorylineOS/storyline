@@ -3,6 +3,7 @@ import { mediaUrl } from '@shared/media'
 import type { Asset, AssetFolder } from '@shared/types'
 import { useAssetStore, folderPath } from '../../store/assetStore'
 import { setAssetDragPayload } from '../../lib/dnd'
+import { useMediaContextMenu } from '../../lib/mediaContextMenu'
 import { CreateNewFolderIcon, FolderIcon, PlusIcon } from '../../components/icons'
 import { VideoPreview } from '../../components/VideoPreview'
 
@@ -253,10 +254,14 @@ function AssetThumb({
   const url = mediaUrl(asset.filePath)
   const videoSrc = mediaUrl(asset.previewPath ?? asset.filePath)
   const poster = asset.thumbPath ? mediaUrl(asset.thumbPath) : undefined
+  const onContextMenu = useMediaContextMenu()
   return (
     <div className="group relative">
       <button
         onClick={(e) => (e.metaKey || e.ctrlKey ? onToggleDrag() : onSelect())}
+        onContextMenu={(e) =>
+          onContextMenu(e, { src: mediaUrl(asset.filePath), name: asset.name, kind: asset.kind })
+        }
         draggable
         onDragStart={(e) => {
           const ids = dragSelected && dragIds.length > 0 ? dragIds : [asset.id]

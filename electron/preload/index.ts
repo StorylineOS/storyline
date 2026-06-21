@@ -141,6 +141,11 @@ const api: InlineStudioApi = {
   dialog: {
     pickDirectory: () => ipcRenderer.invoke(IpcChannels.dialog.pickDirectory),
   },
+  media: {
+    save: (src: string, suggestedName: string) =>
+      ipcRenderer.invoke(IpcChannels.media.save, src, suggestedName),
+    copyImage: (src: string) => ipcRenderer.invoke(IpcChannels.media.copyImage, src),
+  },
   shell: {
     openExternal: (url: string) => ipcRenderer.invoke(IpcChannels.shell.openExternal, url),
   },

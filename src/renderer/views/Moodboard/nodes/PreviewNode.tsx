@@ -3,6 +3,7 @@ import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { mediaUrl } from '@shared/media'
 import { useMoodboardStore } from '../../../store/moodboardStore'
 import { useFrameStore } from '../../../store/frameStore'
+import { useMediaContextMenu } from '../../../lib/mediaContextMenu'
 import { NodeFrame } from './NodeFrame'
 
 /**
@@ -16,6 +17,7 @@ export function PreviewNode({ id, selected }: NodeProps): React.JSX.Element {
   const frames = useFrameStore((s) => s.frames)
   const takesByFrame = useFrameStore((s) => s.takesByFrame)
   const setHero = useFrameStore((s) => s.setHero)
+  const onMediaContextMenu = useMediaContextMenu()
   const [idx, setIdx] = useState(0)
 
   const conn = connectors.find((c) => c.toItemId === id)
@@ -75,12 +77,26 @@ export function PreviewNode({ id, selected }: NodeProps): React.JSX.Element {
                 <video
                   src={mediaUrl(cur.filePath)}
                   controls
+                  onContextMenu={(e) =>
+                    onMediaContextMenu(e, {
+                      src: mediaUrl(cur.filePath),
+                      name: frame ? `Frame ${frame.name}` : 'take',
+                      kind: 'video',
+                    })
+                  }
                   className="max-h-full max-w-full object-contain"
                 />
               ) : (
                 <img
                   src={mediaUrl(cur.filePath)}
                   alt=""
+                  onContextMenu={(e) =>
+                    onMediaContextMenu(e, {
+                      src: mediaUrl(cur.filePath),
+                      name: frame ? `Frame ${frame.name}` : 'take',
+                      kind: cur.kind,
+                    })
+                  }
                   className="max-h-full max-w-full object-contain"
                 />
               )

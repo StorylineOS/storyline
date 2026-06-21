@@ -10,6 +10,7 @@ import { useUiStore, type WorkspaceMode } from '../../store/uiStore'
 import { MoodboardPanel } from '../Moodboard/MoodboardPanel'
 import { GeneratePanel } from '../Generate/GeneratePanel'
 import { AssistantPanel } from '../Assistant/AssistantPanel'
+import { ContextMenu } from '../../components/ContextMenu'
 
 /** The main shell: a node canvas ("Inline Studio") plus the embedded ComfyUI Generate tab. */
 export function Workspace({ project }: { project: Project }): React.JSX.Element {
@@ -77,11 +78,14 @@ export function Workspace({ project }: { project: Project }): React.JSX.Element 
           <button
             onClick={() => setAssistantOpen(!assistantOpen)}
             title={assistantOpen ? 'Hide Claude assistant' : 'Open Claude assistant'}
-            className={`-m-1 p-1 transition-colors ${
+            className={`-m-1 flex items-center gap-1.5 p-1 transition-colors ${
               assistantOpen ? 'text-white' : 'text-zinc-400 hover:text-zinc-200'
             }`}
           >
             <ClaudeLogo size={20} />
+            <span className="rounded-full border border-accent/50 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-accent">
+              Beta
+            </span>
           </button>
         </div>
       </header>
@@ -113,6 +117,8 @@ export function Workspace({ project }: { project: Project }): React.JSX.Element 
           </>
         )}
       </main>
+
+      <ContextMenu />
     </div>
   )
 }

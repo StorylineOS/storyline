@@ -9,6 +9,7 @@ import { registerSettingsHandlers } from './settings'
 import { registerClaudeHandlers } from './claude'
 import { registerExportHandlers } from './export'
 import { registerClipboardHandlers } from './clipboard'
+import { registerMediaHandlers } from './media'
 import { registerShellHandlers } from './shell'
 
 export function registerIpcHandlers(): void {
@@ -22,5 +23,6 @@ export function registerIpcHandlers(): void {
   registerClaudeHandlers()
   registerExportHandlers()
   registerClipboardHandlers()
+  registerMediaHandlers()
   registerShellHandlers()
 }

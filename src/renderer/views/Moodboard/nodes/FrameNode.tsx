@@ -6,6 +6,7 @@ import { useAssetStore } from '../../../store/assetStore'
 import { useMoodboardStore } from '../../../store/moodboardStore'
 import { useUiStore } from '../../../store/uiStore'
 import { getAssetDragIds } from '../../../lib/dnd'
+import { useMediaContextMenu } from '../../../lib/mediaContextMenu'
 import { VideoPreview } from '../../../components/VideoPreview'
 import { NodeFrame } from './NodeFrame'
 
@@ -18,6 +19,8 @@ type Thumb = {
   id: string
   assetId: string | null
   url: string
+  /** The original media to save on right-click (not the transcoded video preview). */
+  saveSrc: string
   kind: 'image' | 'video' | 'audio'
   /** Poster image for a video, so it renders even when the codec can't be decoded. */
   poster?: string
@@ -63,6 +66,7 @@ export function FrameNode({ id, data, selected }: NodeProps): React.JSX.Element 
   const setMode = useUiStore((s) => s.setMode)
   const setLinkedWorkflow = useUiStore((s) => s.setLinkedWorkflow)
   const setActiveFrame = useUiStore((s) => s.setActiveFrame)
+  const onMediaContextMenu = useMediaContextMenu()
   const [idx, setIdx] = useState(0)
   // True while assets are dragged over the frame — highlights it as a drop target.
   const [dropActive, setDropActive] = useState(false)
@@ -86,6 +90,8 @@ export function FrameNode({ id, data, selected }: NodeProps): React.JSX.Element 
           assetId: a.id,
           // Prefer the playable transcode for video; the poster covers undecodable codecs.
           url: mediaUrl(a.previewPath ?? a.filePath),
+          // Save the original file, not the transcoded preview.
+          saveSrc: mediaUrl(a.filePath),
           kind: a.kind,
           poster: a.thumbPath ? mediaUrl(a.thumbPath) : undefined,
         }
@@ -96,7 +102,13 @@ export function FrameNode({ id, data, selected }: NodeProps): React.JSX.Element 
         // Mirror the Preview: the hero take, or the newest when no hero is set.
         const take = takes.find((t) => t.id === sf?.heroTakeId) ?? takes[0]
         return take
-          ? { id: i.id, assetId: null, url: mediaUrl(take.filePath), kind: take.kind }
+          ? {
+              id: i.id,
+              assetId: null,
+              url: mediaUrl(take.filePath),
+              saveSrc: mediaUrl(take.filePath),
+              kind: take.kind,
+            }
           : null
       }
       return null
@@ -247,6 +259,13 @@ export function FrameNode({ id, data, selected }: NodeProps): React.JSX.Element 
                     const v = e.currentTarget
                     if (v.videoWidth && v.videoHeight) setAspect(v.videoWidth / v.videoHeight)
                   }}
+                  onContextMenu={(e) =>
+                    onMediaContextMenu(e, {
+                      src: cur.saveSrc,
+                      name: frame ? `Frame ${frame.name}` : 'input',
+                      kind: 'video',
+                    })
+                  }
                   className="h-full w-full object-cover"
                 />
               ) : cur.kind === 'audio' ? (
@@ -260,6 +279,13 @@ export function FrameNode({ id, data, selected }: NodeProps): React.JSX.Element 
                     if (img.naturalWidth && img.naturalHeight)
                       setAspect(img.naturalWidth / img.naturalHeight)
                   }}
+                  onContextMenu={(e) =>
+                    onMediaContextMenu(e, {
+                      src: cur.saveSrc,
+                      name: frame ? `Frame ${frame.name}` : 'input',
+                      kind: 'image',
+                    })
+                  }
                   className="h-full w-full object-cover"
                 />
               )

@@ -123,6 +123,10 @@ export const IpcChannels = {
   dialog: {
     pickDirectory: 'dialog:pickDirectory',
   },
+  media: {
+    save: 'media:save',
+    copyImage: 'media:copyImage',
+  },
   shell: {
     openExternal: 'shell:openExternal',
   },
@@ -319,6 +323,17 @@ export interface InlineStudioApi {
   dialog: {
     /** Native folder picker; returns the chosen absolute path or null if cancelled. */
     pickDirectory(): Promise<Result<string | null>>
+  }
+  media: {
+    /**
+     * Save a project media file (an image/video/audio take or asset) to a location
+     * the user picks. `src` is its media URL or project-relative path; `suggestedName`
+     * seeds the save dialog's filename (the source extension is appended if missing).
+     * Resolves to `true` if saved, `false` if the dialog was cancelled.
+     */
+    save(src: string, suggestedName: string): Promise<Result<boolean>>
+    /** Copy an image (by media URL or project-relative path) to the system clipboard. */
+    copyImage(src: string): Promise<Result<void>>
   }
   shell: {
     /** Open an http(s) URL in the user's default browser. */
