@@ -1,10 +1,10 @@
 # Inline Studio
 
-**A narrative-first desktop app for visual artists, powered by your own [ComfyUI](https://github.com/comfyanonymous/ComfyUI).**
+**An experimentation layer for visual artists. Build, iterate, and share generative pipelines on your own [ComfyUI](https://github.com/comfyanonymous/ComfyUI).**
 
 [![Join our Discord](https://img.shields.io/badge/Discord-Join%20the%20community-5865F2?logo=discord&logoColor=white&style=for-the-badge)](https://discord.gg/cSUS88VdY9)
 
-ComfyUI is the most capable generative engine currently: image, video, audio, LLM, every new model lands there first. But it asks you to think in node graphs and execution order. Filmmakers think in frames, scenes, and sequences. Inline Studio sits in between: you compose your film on a free-form canvas and work frame by frame, while ComfyUI quietly does the generation behind each one.
+ComfyUI is the most capable generative engine going: image, video, audio, LLM, every new model lands there first. But generating is the easy part. The work that matters is what comes after: exploring options, keeping what's good, and shaping a repeatable process out of it. Inline Studio is the layer where that happens. It gives visual artists a free-form node canvas to experiment on, holds every version that worked, and grows a single render into a pipeline you can iterate on and share, while your own ComfyUI does the rendering behind each shot.
 
 ![Inline Studio canvas](screenshots/screenshot-dashboard-2.png)
 
@@ -12,19 +12,23 @@ ComfyUI is the most capable generative engine currently: image, video, audio, LL
 
 ---
 
-## The idea
+## Pipelines, not workflows
 
-A **frame is not a file. It's a slot with a history of takes.**
+A **workflow is not a project. It's one layer of many.**
 
-Filmmakers re-shoot. So in Inline Studio, every render you make becomes an immutable _take_ that lives under its frame. Nothing gets overwritten; you generate again and again, then pick the one that works (the "hero"), and that's the one that flows on to the next shot. That versioned-take history is the thing ComfyUI doesn't give you, and it's what the whole app is built around.
+One ComfyUI workflow makes one thing well. A real project is dozens of them, layered and wired into a pipeline. Inline Studio is where you compose that: build a workflow, turn it into a shot, feed it into the next, and keep every version that works. The canvas holds the whole pipeline, not just the last render.
 
 ```
-Project  →  Sequence  →  Frame  →  Take[]
+Workflow  →  Shot  →  Layer  →  Pipeline
 ```
+
+---
+
+## Export the entire pipeline
 
 A project is a single portable `.inlinestudio` folder you can move, back up, or hand to a collaborator.
 
-**Export a project to share it.** From the home screen, **Export** zips up the whole project — its database, every imported asset, all the generated takes, and the per-frame ComfyUI workflows — into one archive. Hand that file to a collaborator and they have everything needed to open the project and re-run it exactly, nothing left dangling on your machine.
+**Export bundles the whole pipeline, not just the final render.** From the home screen, **Export** zips the project into one archive. Import it on the other side and you get everything back: the inputs (every imported asset), the outputs (all the generated takes), and the ComfyUI workflows that turned one into the other. Whoever opens it can re-run the pipeline exactly and keep iterating, with nothing left dangling on your machine.
 
 ---
 
@@ -45,14 +49,6 @@ When it's time to generate, the **Generate** tab opens your own ComfyUI right in
 
 Inline Studio ships with an AI assistant powered by **Claude** that works alongside you on the canvas. Connect your own [Anthropic API key](https://console.anthropic.com/settings/keys) — it's stored encrypted on your machine and never sent anywhere but Anthropic — and open the assistant from the Claude icon in the header.
 
-Ask in plain language and it **proposes concrete changes you apply with one click**. It never edits your project behind your back, and everything it does is undoable:
-
-- **Design the canvas.** "Plan a three-frame opening with a sky layer and previews" — it creates the frames, groups them in a layer, wires up previews, and arranges everything without landing on top of what's already there. You watch it build step by step.
-- **Point it at what you mean.** Select frames or layers on the canvas and hit **Add to Claude** (or pin an empty spot) so it knows exactly which shots you're referring to and where to put new ones.
-- **Build ComfyUI workflows.** Ask it to set up a frame's workflow and it grounds the graph in _your_ actual ComfyUI — the nodes and model checkpoints you have installed — then opens it live in the Generate tab. It remembers the workflows that worked and reuses them next time.
-
-Pick the model that fits the job (Opus, Sonnet, or Haiku) right in the chat. The assistant is optional — the canvas and ComfyUI bridge work fully without it.
-
 ---
 
 ## Bring your own ComfyUI
@@ -62,7 +58,7 @@ Inline Studio doesn't bundle or manage ComfyUI; you run it, wherever you like, a
 - **Running locally with a GPU?** Start ComfyUI with `--enable-cors-header` and paste its address into the Generate tab.
 - **No GPU?** Spin up ComfyUI on a cloud GPU (the app walks you through deploying it on [RunPod](https://runpod.io)) and paste the public URL. Any reachable ComfyUI works.
 
-Your media, your models, your machine. Inline Studio just gives the work a narrative shape.
+Your media, your models, your machine. ComfyUI does the rendering. Inline Studio gives the work a shape you can iterate and share.
 
 ---
 

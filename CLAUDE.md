@@ -1,8 +1,9 @@
 # Inline Studio — Engineering Guide
 
-Inline Studio is a **narrative-first desktop app for filmmakers** that uses **ComfyUI** as an open
-generative render-farm. Creators compose on a free-form node canvas and work frame-by-frame, while
-ComfyUI does the actual image/video/audio/LLM generation behind each frame.
+Inline Studio is an **experimentation layer for visual artists** that uses **ComfyUI** as an open
+generative render-farm. Creators build, iterate, and share generative pipelines on a free-form node
+canvas, working frame-by-frame, while ComfyUI does the actual image/video/audio/LLM generation behind
+each frame.
 
 > Read this file before changing code. It defines the architecture and the non-negotiable rules.
 

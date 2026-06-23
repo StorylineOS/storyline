@@ -28,7 +28,8 @@ export function ProjectLauncher(): React.JSX.Element {
             <h1 className="text-4xl font-semibold tracking-tight text-white">Inline Studio</h1>
           </div>
           <p className="mt-3 text-sm text-zinc-400">
-            A narrative-first desktop app for visual artists, powered by your own ComfyUI.
+            An experimentation layer for visual artists. Build, iterate, and share generative
+            pipelines on your own ComfyUI.
           </p>
         </header>
 
