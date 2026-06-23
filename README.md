@@ -12,6 +12,8 @@ ComfyUI is the most capable generative engine going: image, video, audio, LLM, e
 
 ---
 
+[**New here? Follow our Animated Short Film with LTX 2.3 and GPT Image Generation tutorial →**](https://inlinestudio.art/projects/circuit-race)
+
 ## Pipelines, not workflows
 
 A **workflow is not a project. It's one layer of many.**
