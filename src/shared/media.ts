@@ -13,3 +13,16 @@ export function mediaUrl(relativePath: string): string {
   const encoded = clean.split('/').map(encodeURIComponent).join('/')
   return `${MEDIA_SCHEME}://local/${encoded}`
 }
+
+/** Project-relative path of an audio take's waveform peaks JSON (by convention). */
+export function takeWaveformPath(takeId: string): string {
+  return `thumbs/take-${takeId}.peaks.json`
+}
+
+/**
+ * Project-relative path of the waveform peaks JSON for media's *audio* (e.g. a video's
+ * embedded audio, used by the director L1 layer), keyed by the source take/asset id.
+ */
+export function audioPeaksPath(id: string): string {
+  return `thumbs/audio-${id}.peaks.json`
+}

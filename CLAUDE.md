@@ -113,6 +113,11 @@ here, not just an escape hatch.
   or ffmpeg args in UI code — either engine must be mockable/swappable.
 - **Files & naming.** Components `PascalCase.tsx`, hooks `useX.ts`, one component per file,
   feature-foldered views. Keep files under ~300 lines without a good reason.
+- **Icons, never emoji.** Never use emoji in the UI (no 🎬/🎵/✂/🔊 as glyphs). Use crisp,
+  consistent line SVG icons (Lucide-style: `viewBox="0 0 24 24"`, `fill="none"`,
+  `stroke="currentColor"`) that inherit color/size via `currentColor` + a size class. Follow the
+  existing icon components (`src/renderer/components/icons`, `CanvasToolbar` icons, `DirectorNode`'s
+  `VolumeIcon`); reuse or add to those rather than dropping in an emoji.
 - **Tests (Vitest).** Cover the logic that matters: Comfy input/workflow resolution, frame-input and
   hero-take resolution, DB migrations. UI is verified by running the app — don't chase view coverage.
 - **Commits.** Conventional Commits (`feat:`, `fix:`, `chore:`), small and scoped. `lint` +

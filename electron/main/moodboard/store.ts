@@ -107,6 +107,24 @@ function getItem(id: string): MoodboardItem {
   return rowToItem(row)
 }
 
+/** Read a moodboard item by id (e.g. a director node's settings). */
+export function getMoodboardItem(id: string): MoodboardItem {
+  return getItem(id)
+}
+
+/** All connectors whose target is `itemId` (e.g. inputs wired into a director node). */
+export function listConnectorsTo(itemId: string): MoodboardConnector[] {
+  const rows = getDb()
+    .prepare('SELECT * FROM moodboard_connectors WHERE to_item_id = ?')
+    .all(itemId) as ConnectorRow[]
+  return rows.map(rowToConnector)
+}
+
+/** Read all moodboard items (for resolving connector sources). */
+export function listItems(): MoodboardItem[] {
+  return (getDb().prepare('SELECT * FROM moodboard_items').all() as ItemRow[]).map(rowToItem)
+}
+
 function nextZIndex(): number {
   const row = getDb().prepare('SELECT MAX(z_index) AS z FROM moodboard_items').get() as {
     z: number | null
@@ -289,6 +307,51 @@ export function addPreview(x: number, y: number): MoodboardItem {
   })
 }
 
+/** Add a video-director node (a timeline-in-a-node: preview + video/audio tracks). */
+export function addDirector(x: number, y: number): MoodboardItem {
+  const now = Date.now()
+  return insertItem({
+    id: randomUUID(),
+    projectId: projectId(),
+    type: 'director',
+    assetId: null,
+    frameId: null,
+    parentId: null,
+    data: { name: 'Director', director: { width: 1920, height: 1080, fps: 30 } },
+    x,
+    y,
+    // 2× a normal frame node (220×200) so the in-node timeline has room.
+    width: 440,
+    height: 400,
+    rotation: 0,
+    zIndex: nextZIndex(),
+    createdAt: now,
+    updatedAt: now,
+  })
+}
+
+/** Add an "Edit Video/Audio" (trim) node: 1 input + 1 output, with an in/out window. */
+export function addTrim(x: number, y: number): MoodboardItem {
+  const now = Date.now()
+  return insertItem({
+    id: randomUUID(),
+    projectId: projectId(),
+    type: 'trim',
+    assetId: null,
+    frameId: null,
+    parentId: null,
+    data: { trim: { inPoint: 0, outPoint: 0 } },
+    x,
+    y,
+    width: 360,
+    height: 170,
+    rotation: 0,
+    zIndex: nextZIndex(),
+    createdAt: now,
+    updatedAt: now,
+  })
+}
+
 export function updateItem(id: string, patch: MoodboardItemPatch): MoodboardItem {
   getItem(id) // ensure exists
   const sets: string[] = []
@@ -371,4 +434,15 @@ export function createConnector(
 
 export function deleteConnector(id: string): void {
   getDb().prepare('DELETE FROM moodboard_connectors WHERE id = ?').run(id)
+}
+
+/** Set the per-input audio volume (0..1) stored on a connector (director L1 inputs). */
+export function setConnectorVolume(id: string, volume: number): void {
+  const db = getDb()
+  const row = db.prepare('SELECT data FROM moodboard_connectors WHERE id = ?').get(id) as
+    | { data: string | null }
+    | undefined
+  const data = (row?.data ? JSON.parse(row.data) : {}) as Record<string, unknown>
+  data.volume = Math.min(1, Math.max(0, volume))
+  db.prepare('UPDATE moodboard_connectors SET data = ? WHERE id = ?').run(JSON.stringify(data), id)
 }

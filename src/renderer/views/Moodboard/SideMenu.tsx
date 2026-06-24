@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { mediaUrl } from '@shared/media'
+import { mediaUrl, takeWaveformPath } from '@shared/media'
 import type { Frame } from '@shared/types'
 import { useFrameStore } from '../../store/frameStore'
 import { useAssetStore } from '../../store/assetStore'
@@ -8,6 +8,7 @@ import { useUiStore } from '../../store/uiStore'
 import { LibraryPanel } from '../Library/LibraryPanel'
 import { setFrameDragPayload } from '../../lib/dnd'
 import { EditIcon, FolderIcon, HistoryIcon, ImageIcon, WorkflowIcon } from '../../components/icons'
+import { Waveform } from '../../components/Waveform'
 
 type Tab = 'assets' | 'timeline'
 type SortKey = 'updated' | 'name'
@@ -262,7 +263,8 @@ function FrameFolder({
                   name={a.name}
                   thumb={mediaUrl(a.previewPath ?? a.filePath)}
                   kind={a.kind}
-                  poster={a.thumbPath ? mediaUrl(a.thumbPath) : undefined}
+                  poster={a.kind === 'video' && a.thumbPath ? mediaUrl(a.thumbPath) : undefined}
+                  waveform={a.kind === 'audio' && a.thumbPath ? mediaUrl(a.thumbPath) : undefined}
                 />
               ))
             )}
@@ -279,6 +281,7 @@ function FrameFolder({
                   thumb={mediaUrl(t.filePath)}
                   kind={t.kind}
                   badge={t.id === frame.heroTakeId ? '★' : undefined}
+                  waveform={t.kind === 'audio' ? mediaUrl(takeWaveformPath(t.id)) : undefined}
                 />
               ))
             )}
@@ -335,12 +338,14 @@ function FileRow({
   kind,
   badge,
   poster,
+  waveform,
 }: {
   name: string
   thumb: string
   kind: 'image' | 'video' | 'audio'
   badge?: string
   poster?: string
+  waveform?: string
 }): React.JSX.Element {
   return (
     <div className="flex items-center gap-1.5 py-0.5">
@@ -355,9 +360,12 @@ function FileRow({
             className="h-full w-full object-cover"
           />
         )}
-        {kind === 'audio' && (
-          <span className="flex h-full w-full items-center justify-center text-xs">🎵</span>
-        )}
+        {kind === 'audio' &&
+          (waveform ? (
+            <Waveform url={waveform} bars={24} className="h-full w-full p-0.5 text-emerald-400" />
+          ) : (
+            <span className="flex h-full w-full items-center justify-center text-xs">🎵</span>
+          ))}
       </div>
       <span className="min-w-0 flex-1 truncate text-[11px] text-zinc-400" title={name}>
         {name}

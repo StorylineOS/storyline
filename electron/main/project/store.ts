@@ -11,7 +11,7 @@ import { randomUUID } from 'node:crypto'
 import type { Project } from '@shared/types'
 import { openProjectDb, getDb } from '../db'
 import { recordRecent } from './recents'
-import { backfillVideoAssets } from '../assets/store'
+import { backfillVideoAssets, backfillAudioAssets } from '../assets/store'
 
 /** Extension for newly-created projects. */
 const PROJECT_EXT = '.inlinestudio'
@@ -99,8 +99,9 @@ export function openProject(folder: string): Project {
   const project = loadProjectRow(folder)
   currentProject = project
   recordRecent({ name: project.name, path: folder })
-  // Catch up videos imported before posters/transcodes existed (background, best-effort).
+  // Catch up media imported before posters/transcodes/waveforms existed (background, best-effort).
   backfillVideoAssets()
+  backfillAudioAssets()
   return project
 }
 

@@ -13,6 +13,7 @@ import { getDb, getOpenProjectFolder } from '../db'
 import {
   ffmpegAvailable,
   generatePoster,
+  generatePeaks,
   probeVideo,
   isWebPlayable,
   transcodeH264,
@@ -81,6 +82,24 @@ function setPreviewPath(id: string, rel: string): void {
   // The asset may have been deleted meanwhile; UPDATE no-ops if the row is gone.
   getDb().prepare('UPDATE assets SET preview_path = ? WHERE id = ?').run(rel, id)
   notifyLibraryChanged()
+}
+
+function setThumbPath(id: string, rel: string): void {
+  getDb().prepare('UPDATE assets SET thumb_path = ? WHERE id = ?').run(rel, id)
+  notifyLibraryChanged()
+}
+
+/**
+ * Generate an audio waveform (peaks JSON) in the background and store it as the asset's
+ * thumb_path (audio has no poster, so the column is reused). No-op if already present.
+ */
+async function ensureWaveform(id: string, srcAbs: string, folder: string): Promise<void> {
+  try {
+    const rel = `thumbs/${id}.peaks.json`
+    if (await generatePeaks(srcAbs, join(folder, rel))) setThumbPath(id, rel)
+  } catch {
+    // ignore — the 🎵 placeholder covers display; retried on next project open
+  }
 }
 
 /**
@@ -158,6 +177,10 @@ async function importFile(absPath: string, folderId: string | null): Promise<Ass
   if (kind === 'video' && ffmpegAvailable()) {
     void ensurePlayable(id, join(folder, relative), folder, relative)
   }
+  // Background: render a waveform for audio (the 🎵 placeholder covers the meantime).
+  if (kind === 'audio' && ffmpegAvailable()) {
+    void ensureWaveform(id, join(folder, relative), folder)
+  }
   return asset
 }
 
@@ -200,6 +223,29 @@ export function backfillVideoAssets(): void {
   })()
 }
 
+/**
+ * Generate waveforms for audio assets imported before waveforms existed (keyed on a
+ * missing thumb_path). Background + sequential, like the video backfill.
+ */
+export function backfillAudioAssets(): void {
+  if (!ffmpegAvailable()) return
+  const folder = getOpenProjectFolder()
+  if (!folder) return
+  const rows = getDb()
+    .prepare("SELECT id, file_path FROM assets WHERE kind = 'audio' AND thumb_path IS NULL")
+    .all() as Array<{ id: string; file_path: string }>
+  if (rows.length === 0) return
+
+  void (async () => {
+    for (const r of rows) {
+      if (getOpenProjectFolder() !== folder) return // project switched — stop
+      const srcAbs = join(folder, r.file_path)
+      if (!existsSync(srcAbs)) continue
+      await ensureWaveform(r.id, srcAbs, folder)
+    }
+  })()
+}
+
 export async function importViaDialog(folderId: string | null): Promise<Asset[]> {
   if (!getOpenProjectFolder()) throw new Error('Open a project first.')
 
@@ -232,6 +278,16 @@ export async function importPaths(paths: string[], folderId: string | null): Pro
     if (asset) imported.push(asset)
   }
   return imported
+}
+
+/** Resolve a library asset to a relative path + kind + name, for the director timeline. */
+export function assetFile(
+  assetId: string,
+): { filePath: string; kind: AssetKind; name: string } | null {
+  const row = getDb()
+    .prepare('SELECT file_path, kind, name FROM assets WHERE id = ?')
+    .get(assetId) as { file_path: string; kind: AssetKind; name: string } | undefined
+  return row ? { filePath: row.file_path, kind: row.kind, name: row.name } : null
 }
 
 export function listAssets(): Asset[] {

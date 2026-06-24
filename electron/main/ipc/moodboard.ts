@@ -11,11 +11,14 @@ import {
   addFrameItem,
   addPreview,
   addLayer,
+  addDirector,
+  addTrim,
   updateItem,
   deleteItem,
   importAndPlace,
   createConnector,
   deleteConnector,
+  setConnectorVolume,
   replaceBoard,
 } from '../moodboard/store'
 
@@ -62,6 +65,14 @@ export function registerMoodboardHandlers(): void {
     addLayer(num(x, 'x'), num(y, 'y')),
   )
 
+  handle<[number, number], MoodboardItem>(IpcChannels.moodboard.addDirector, (x, y) =>
+    addDirector(num(x, 'x'), num(y, 'y')),
+  )
+
+  handle<[number, number], MoodboardItem>(IpcChannels.moodboard.addTrim, (x, y) =>
+    addTrim(num(x, 'x'), num(y, 'y')),
+  )
+
   handle<[string, MoodboardItemPatch], MoodboardItem>(
     IpcChannels.moodboard.updateItem,
     (id, patch) => {
@@ -89,6 +100,10 @@ export function registerMoodboardHandlers(): void {
 
   handle<[string], void>(IpcChannels.moodboard.deleteConnector, (id) =>
     deleteConnector(str(id, 'connector id')),
+  )
+
+  handle<[string, number], void>(IpcChannels.moodboard.setConnectorVolume, (id, volume) =>
+    setConnectorVolume(str(id, 'connector id'), num(volume, 'volume')),
   )
 
   handle<[MoodboardItem[], MoodboardConnector[]], void>(

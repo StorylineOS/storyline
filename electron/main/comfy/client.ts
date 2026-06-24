@@ -28,9 +28,13 @@ function baseUrl(): string {
 const delay = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
 
 const VIDEO_EXTS = new Set(['.mp4', '.webm', '.mov', '.mkv', '.gif', '.avi', '.m4v'])
+const AUDIO_EXTS = new Set(['.mp3', '.wav', '.aac', '.flac', '.ogg', '.m4a'])
 
 function kindForExt(ext: string): AssetKind {
-  return VIDEO_EXTS.has(ext.toLowerCase()) ? 'video' : 'image'
+  const e = ext.toLowerCase()
+  if (VIDEO_EXTS.has(e)) return 'video'
+  if (AUDIO_EXTS.has(e)) return 'audio'
+  return 'image'
 }
 
 /** Is the configured ComfyUI reachable? */

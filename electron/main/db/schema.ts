@@ -5,7 +5,7 @@
  */
 import type BetterSqlite3 from 'better-sqlite3'
 
-export const SCHEMA_VERSION = 11
+export const SCHEMA_VERSION = 12
 
 const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS project (
@@ -103,16 +103,6 @@ CREATE TABLE IF NOT EXISTS moodboard_connectors (
   created_at   INTEGER NOT NULL DEFAULT 0
 );
 
-CREATE TABLE IF NOT EXISTS timeline_clips (
-  id          TEXT PRIMARY KEY,
-  sequence_id TEXT NOT NULL,
-  frame_id     TEXT NOT NULL,
-  track       INTEGER NOT NULL,
-  start_time  REAL NOT NULL,
-  in_point    REAL NOT NULL,
-  out_point   REAL NOT NULL
-);
-
 CREATE TABLE IF NOT EXISTS workflow_templates (
   id          TEXT PRIMARY KEY,
   project_id  TEXT NOT NULL,
@@ -129,7 +119,6 @@ CREATE INDEX IF NOT EXISTS idx_assets_folder ON assets(folder_id);
 CREATE INDEX IF NOT EXISTS idx_asset_folders_parent ON asset_folders(parent_id);
 CREATE INDEX IF NOT EXISTS idx_moodboard_items_project ON moodboard_items(project_id);
 CREATE INDEX IF NOT EXISTS idx_moodboard_connectors_project ON moodboard_connectors(project_id);
-CREATE INDEX IF NOT EXISTS idx_clips_sequence ON timeline_clips(sequence_id);
 `
 
 /** Create tables (idempotent) and stamp the schema version. */
@@ -210,6 +199,10 @@ function migrateColumns(db: BetterSqlite3.Database): void {
   // v10 → v11: frames track whether a real (non-seed) workflow has been captured, so
   // the UI can tell "linked but empty" from "ready to generate".
   addColumnIfMissing(db, 'frames', 'comfy_workflow_ready', 'INTEGER NOT NULL DEFAULT 0')
+
+  // v11 → v12: the director node stores its state on the moodboard item + derives its
+  // timeline from connections, so no table change is needed (the old, never-shipped
+  // timeline_clips table is simply left unused if a test DB created one).
 }
 
 /** Rebuild frame_inputs to drop a legacy NOT NULL on asset_id. Idempotent. */

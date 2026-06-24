@@ -6,6 +6,7 @@ import { setAssetDragPayload } from '../../lib/dnd'
 import { useMediaContextMenu } from '../../lib/mediaContextMenu'
 import { CreateNewFolderIcon, FolderIcon, PlusIcon } from '../../components/icons'
 import { VideoPreview } from '../../components/VideoPreview'
+import { AudioPreview } from '../../components/AudioPreview'
 
 /** Left panel: folder navigation + import + a grid of folders and media. */
 export function LibraryPanel(): React.JSX.Element {
@@ -283,7 +284,13 @@ function AssetThumb({
           {asset.kind === 'video' && (
             <VideoPreview src={videoSrc} poster={poster} className="h-full w-full object-cover" />
           )}
-          {asset.kind === 'audio' && <span className="text-2xl">🎵</span>}
+          {asset.kind === 'audio' && (
+            <AudioPreview
+              src={url}
+              waveformUrl={asset.thumbPath ? mediaUrl(asset.thumbPath) : null}
+              className="h-full w-full"
+            />
+          )}
         </div>
         <span className="truncate px-1.5 py-1 text-[11px] text-zinc-400">{asset.name}</span>
       </button>

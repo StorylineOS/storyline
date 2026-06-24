@@ -3,6 +3,7 @@ import { registerProjectHandlers } from './project'
 import { registerAssetHandlers } from './assets'
 import { registerFolderHandlers } from './folders'
 import { registerMoodboardHandlers } from './moodboard'
+import { registerTimelineHandlers } from './timeline'
 import { registerFrameHandlers } from './frames'
 import { registerComfyHandlers } from './comfy'
 import { registerSettingsHandlers } from './settings'
@@ -18,6 +19,7 @@ export function registerIpcHandlers(): void {
   registerAssetHandlers()
   registerFolderHandlers()
   registerMoodboardHandlers()
+  registerTimelineHandlers()
   registerFrameHandlers()
   registerComfyHandlers()
   registerSettingsHandlers()

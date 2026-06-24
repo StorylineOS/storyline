@@ -7,7 +7,7 @@
  *   The timeline points at a Frame's `heroTakeId` (the current chosen take).
  */
 
-export type FrameKind = 'image' | 'video'
+export type FrameKind = 'image' | 'video' | 'audio'
 export type AssetKind = 'image' | 'video' | 'audio'
 
 /** A project is a portable `.inlinestudio` folder; this is its DB-backed metadata. */
@@ -119,7 +119,83 @@ export interface Asset {
  * also hosts the production graph: `frame` nodes (input/output handles), `layer`
  * group containers, and `preview` nodes that display a connected frame's output.
  */
-export type MoodboardItemType = 'asset' | 'text' | 'frame' | 'layer' | 'preview'
+export type MoodboardItemType =
+  | 'asset'
+  | 'text'
+  | 'frame'
+  | 'layer'
+  | 'preview'
+  | 'director'
+  | 'trim'
+
+/** Output settings for a video-director node (stored in its moodboard item data). */
+export interface DirectorItemData {
+  /** Composition width in px. */
+  width: number
+  /** Composition height in px. */
+  height: number
+  /** Frames per second. */
+  fps: number
+}
+
+/**
+ * One derived clip on a director node's timeline. The video layer and L1 audio are
+ * derived from the videos wired into the node; L2 is the user's wired audio. Positions
+ * are sequential (seconds); nothing here is persisted — it's recomputed from the wired
+ * connections each time.
+ */
+export interface DirectorClip {
+  /** Stable key for React (the source frame/asset id). */
+  key: string
+  /** The connector feeding this input (for per-input volume edits). */
+  connectorId: string
+  /** Per-input audio volume 0..1 (L1 = the video's extracted audio). */
+  volume: number
+  /** Source frame id (for the "Frame X" tag + canvas navigation); null for asset clips. */
+  frameId: string | null
+  /** Display label (frame name / asset name). */
+  label: string
+  kind: AssetKind
+  /** Position on the layer, in seconds. */
+  startTime: number
+  /** Clip length, in seconds. */
+  duration: number
+  /** Project-relative waveform peaks JSON for this clip's audio, if any. */
+  audioPeaks: string | null
+  /** Fraction [start, end] of the source peaks this clip spans (a trim window; full = 0..1). */
+  peaksStart: number
+  peaksEnd: number
+  /** Project-relative thumbnail: a filmstrip PNG for video, the still image for image clips. */
+  thumbnail: string | null
+}
+
+/** The resolved source media behind a trim ("Edit Video/Audio") node, for its UI. */
+export interface TrimResolved {
+  /** Source frame/asset id. */
+  key: string
+  kind: AssetKind
+  label: string
+  /** Full source duration in seconds (0 if unknown). */
+  durationSec: number
+  /** Project-relative media path (for an in-node preview element). */
+  mediaPath: string
+  /** Project-relative filmstrip PNG (video), or null. */
+  thumbnail: string | null
+  /** Project-relative waveform peaks JSON (audio), or null. */
+  audioPeaks: string | null
+}
+
+/** The derived, display-ready timeline for a director node (recomputed from connections). */
+export interface DirectorTimeline {
+  /** Video layer clips (in slot order). */
+  video: DirectorClip[]
+  /** Audio layer 2 clips (the user's wired audio). */
+  l2: DirectorClip[]
+  /** Volume of the extracted video audio (L1), 0..1. */
+  l1Volume: number
+  /** Volume of the user audio (L2), 0..1. */
+  l2Volume: number
+}
 
 export interface TextItemData {
   text: string
@@ -133,13 +209,25 @@ export interface TextItemData {
   link?: string
 }
 
-/** Type-specific payload for a moodboard item (currently just text styling). */
+/** Type-specific payload for a moodboard item (text styling, layer/director settings). */
 export interface MoodboardItemData {
   text?: TextItemData
-  /** Display name for a layer group. */
+  /** Display name for a layer group or director node. */
   name?: string
   /** Accent color (hex) for a layer group. */
   color?: string
+  /** Output settings for a director node. */
+  director?: DirectorItemData
+  /** Project-relative path of a director node's last-built proxy preview MP4. */
+  directorPreview?: string
+  /** Project-relative path of a director node's last full-res Export MP4 (shown in a wired preview). */
+  directorExport?: string
+  /** Director node: volume of the extracted video audio layer (L1), 0..1 (default 1). */
+  l1Volume?: number
+  /** Director node: volume of the user audio layer (L2), 0..1 (default 1). */
+  l2Volume?: number
+  /** Trim ("Edit Video/Audio") node: in/out window in seconds (outPoint <= inPoint = "to end"). */
+  trim?: { inPoint: number; outPoint: number }
 }
 
 export interface MoodboardItem {
@@ -180,15 +268,10 @@ export interface MoodboardSnapshot {
   connectors: MoodboardConnector[]
 }
 
-/** A placed clip on the timeline, pointing at a frame's hero take. */
-export interface TimelineClip {
-  id: string
-  sequenceId: string
-  frameId: string
-  track: number
-  startTime: number
-  inPoint: number
-  outPoint: number
+/** Main → renderer: director timeline render progress (0..1), correlated by node id. */
+export interface TimelineProgressEvent {
+  ownerItemId: string
+  fraction: number
 }
 
 export interface WorkflowTemplate {

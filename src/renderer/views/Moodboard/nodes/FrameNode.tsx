@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
-import { mediaUrl } from '@shared/media'
+import { mediaUrl, takeWaveformPath } from '@shared/media'
 import { useFrameStore } from '../../../store/frameStore'
 import { useAssetStore } from '../../../store/assetStore'
 import { useMoodboardStore } from '../../../store/moodboardStore'
@@ -8,6 +8,7 @@ import { useUiStore } from '../../../store/uiStore'
 import { getAssetDragIds } from '../../../lib/dnd'
 import { useMediaContextMenu } from '../../../lib/mediaContextMenu'
 import { VideoPreview } from '../../../components/VideoPreview'
+import { Waveform } from '../../../components/Waveform'
 import { NodeFrame } from './NodeFrame'
 
 interface FrameNodeData extends Record<string, unknown> {
@@ -24,6 +25,8 @@ type Thumb = {
   kind: 'image' | 'video' | 'audio'
   /** Poster image for a video, so it renders even when the codec can't be decoded. */
   poster?: string
+  /** Waveform peaks JSON URL, for audio inputs/takes. */
+  waveform?: string
 }
 
 // Bounds for the media body when fitting to a media's aspect ratio — keeps very
@@ -60,6 +63,7 @@ export function FrameNode({ id, data, selected }: NodeProps): React.JSX.Element 
   const addInputs = useFrameStore((s) => s.addInputs)
   const allFrames = useFrameStore((s) => s.frames)
   const takesByFrame = useFrameStore((s) => s.takesByFrame)
+  const inputsByFrame = useFrameStore((s) => s.inputsByFrame)
   const assets = useAssetStore((s) => s.assets)
   const item = useMoodboardStore((s) => s.items.find((it) => it.id === id))
   const updateItem = useMoodboardStore((s) => s.updateItem)
@@ -93,7 +97,8 @@ export function FrameNode({ id, data, selected }: NodeProps): React.JSX.Element 
           // Save the original file, not the transcoded preview.
           saveSrc: mediaUrl(a.filePath),
           kind: a.kind,
-          poster: a.thumbPath ? mediaUrl(a.thumbPath) : undefined,
+          poster: a.kind === 'video' && a.thumbPath ? mediaUrl(a.thumbPath) : undefined,
+          waveform: a.kind === 'audio' && a.thumbPath ? mediaUrl(a.thumbPath) : undefined,
         }
       }
       if (i.sourceFrameId) {
@@ -101,13 +106,36 @@ export function FrameNode({ id, data, selected }: NodeProps): React.JSX.Element 
         const takes = sf ? (takesByFrame[sf.id] ?? []) : []
         // Mirror the Preview: the hero take, or the newest when no hero is set.
         const take = takes.find((t) => t.id === sf?.heroTakeId) ?? takes[0]
-        return take
+        if (take) {
+          return {
+            id: i.id,
+            assetId: null,
+            url: mediaUrl(take.filePath),
+            saveSrc: mediaUrl(take.filePath),
+            kind: take.kind,
+            waveform: take.kind === 'audio' ? mediaUrl(takeWaveformPath(take.id)) : undefined,
+          }
+        }
+        // No take yet — fall back to the source frame's imported input asset.
+        const srcInput = sf ? (inputsByFrame[sf.id] ?? []).find((x) => x.assetId) : undefined
+        const srcAsset = srcInput?.assetId
+          ? assets.find((a) => a.id === srcInput.assetId)
+          : undefined
+        return srcAsset
           ? {
               id: i.id,
               assetId: null,
-              url: mediaUrl(take.filePath),
-              saveSrc: mediaUrl(take.filePath),
-              kind: take.kind,
+              url: mediaUrl(srcAsset.previewPath ?? srcAsset.filePath),
+              saveSrc: mediaUrl(srcAsset.filePath),
+              kind: srcAsset.kind,
+              poster:
+                srcAsset.kind === 'video' && srcAsset.thumbPath
+                  ? mediaUrl(srcAsset.thumbPath)
+                  : undefined,
+              waveform:
+                srcAsset.kind === 'audio' && srcAsset.thumbPath
+                  ? mediaUrl(srcAsset.thumbPath)
+                  : undefined,
             }
           : null
       }
@@ -269,7 +297,9 @@ export function FrameNode({ id, data, selected }: NodeProps): React.JSX.Element 
                   className="h-full w-full object-cover"
                 />
               ) : cur.kind === 'audio' ? (
-                <span className="text-2xl">🎵</span>
+                <div className="flex h-full w-full items-center px-2">
+                  <Waveform url={cur.waveform ?? null} className="h-1/2 w-full text-emerald-400" />
+                </div>
               ) : (
                 <img
                   src={cur.url}

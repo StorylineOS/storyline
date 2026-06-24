@@ -23,3 +23,10 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
 }
+
+/* Flat native audio player: drop Chromium's rounded, filled control enclosure so the
+   play/duration bar blends into the dark node instead of sitting on a rounded pill. */
+.flat-audio::-webkit-media-controls-enclosure {
+  border-radius: 0;
+  background: transparent;
+}

@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
-import { mediaUrl } from '@shared/media'
+import { mediaUrl, takeWaveformPath } from '@shared/media'
 import type { Asset } from '@shared/types'
 import { useUiStore } from '../../store/uiStore'
 import { useFrameStore } from '../../store/frameStore'
 import { useAssetStore } from '../../store/assetStore'
 import { useSettingsStore } from '../../store/settingsStore'
 import { getAssetDragIds } from '../../lib/dnd'
+import { Waveform } from '../../components/Waveform'
 
 const INPUT_DND = 'application/x-inlinestudio-frame-input'
 
@@ -143,7 +144,8 @@ export function FrameInspector(): React.JSX.Element | null {
                 <Media
                   url={mediaUrl(a.previewPath ?? a.filePath)}
                   kind={a.kind}
-                  poster={a.thumbPath ? mediaUrl(a.thumbPath) : undefined}
+                  poster={a.kind === 'video' && a.thumbPath ? mediaUrl(a.thumbPath) : undefined}
+                  waveform={a.kind === 'audio' && a.thumbPath ? mediaUrl(a.thumbPath) : undefined}
                 />
                 {inputAssets.length > 1 && (
                   <button
@@ -182,7 +184,11 @@ export function FrameInspector(): React.JSX.Element | null {
                       title={isHero ? 'Hero output' : 'Set as hero output'}
                       className="h-full w-full"
                     >
-                      <Media url={mediaUrl(t.filePath)} kind={t.kind} />
+                      <Media
+                        url={mediaUrl(t.filePath)}
+                        kind={t.kind}
+                        waveform={t.kind === 'audio' ? mediaUrl(takeWaveformPath(t.id)) : undefined}
+                      />
                     </button>
                     {isHero && (
                       <span className="absolute left-0.5 top-0.5 rounded bg-accent px-1 text-[8px] text-panel">
@@ -271,10 +277,12 @@ function Media({
   url,
   kind,
   poster,
+  waveform,
 }: {
   url: string
   kind: 'image' | 'video' | 'audio'
   poster?: string
+  waveform?: string
 }): React.JSX.Element {
   if (kind === 'video')
     return (
@@ -287,6 +295,10 @@ function Media({
       />
     )
   if (kind === 'audio')
-    return <span className="flex h-full w-full items-center justify-center text-lg">🎵</span>
+    return (
+      <span className="flex h-full w-full items-center justify-center p-1">
+        <Waveform url={waveform ?? null} className="h-1/2 w-full text-emerald-400" />
+      </span>
+    )
   return <img src={url} alt="" className="h-full w-full object-cover" />
 }

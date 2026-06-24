@@ -34,6 +34,7 @@ const MIME_BY_EXT: Record<string, string> = {
   '.ogg': 'audio/ogg',
   '.m4a': 'audio/mp4',
   '.flac': 'audio/flac',
+  '.json': 'application/json',
 }
 
 function contentType(filePath: string): string {
@@ -57,7 +58,15 @@ export function registerMediaScheme(): void {
   protocol.registerSchemesAsPrivileged([
     {
       scheme: MEDIA_SCHEME,
-      privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true },
+      // corsEnabled lets the renderer fetch() peaks JSON for waveforms (media elements
+      // don't need it, but fetch is cross-origin to this scheme and is blocked without it).
+      privileges: {
+        standard: true,
+        secure: true,
+        supportFetchAPI: true,
+        stream: true,
+        corsEnabled: true,
+      },
     },
   ])
 }
@@ -99,6 +108,7 @@ export function registerMediaProtocol(): void {
         'Content-Range': `bytes ${start}-${end}/${size}`,
         'Accept-Ranges': 'bytes',
         'Content-Length': String(end - start + 1),
+        'Access-Control-Allow-Origin': '*',
       })
     }
 
@@ -106,6 +116,7 @@ export function registerMediaProtocol(): void {
       'Content-Type': type,
       'Accept-Ranges': 'bytes',
       'Content-Length': String(size),
+      'Access-Control-Allow-Origin': '*',
     })
   })
 }

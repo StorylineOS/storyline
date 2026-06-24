@@ -20,10 +20,11 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { mediaUrl } from '@shared/media'
-import type { MoodboardItem, MoodboardConnector, TextItemData } from '@shared/types'
+import type { MoodboardItem, MoodboardConnector, TextItemData, Frame, Asset } from '@shared/types'
 import { useMoodboardStore } from '../../store/moodboardStore'
 import { useAssetStore } from '../../store/assetStore'
 import { useFrameStore } from '../../store/frameStore'
+import { useTimelineStore } from '../../store/timelineStore'
 import { useUiStore } from '../../store/uiStore'
 import { useClaudeStore } from '../../store/claudeStore'
 import { ClaudeLogo } from '../../components/ClaudeLogo'
@@ -35,6 +36,8 @@ import { TextNode } from './nodes/TextNode'
 import { FrameNode } from './nodes/FrameNode'
 import { PreviewNode } from './nodes/PreviewNode'
 import { LayerNode } from './nodes/LayerNode'
+import { DirectorNode } from './nodes/DirectorNode'
+import { TrimNode } from './nodes/TrimNode'
 import { DeletableEdge } from './edges/DeletableEdge'
 import { SideMenu } from './SideMenu'
 import { CanvasToolbar } from './CanvasToolbar'
@@ -48,6 +51,8 @@ const nodeTypes: NodeTypes = {
   frame: FrameNode,
   preview: PreviewNode,
   layer: LayerNode,
+  director: DirectorNode,
+  trim: TrimNode,
 }
 
 const edgeTypes: EdgeTypes = {
@@ -112,6 +117,43 @@ function visualEdgeColors(connectors: MoodboardConnector[]): Map<string, string>
   return colors
 }
 
+/** Parse the slot index from a director handle id (e.g. "vin-3" → 3), or null. */
+function slotIndex(handle: string | undefined, prefix: string): number | null {
+  if (typeof handle !== 'string' || !handle.startsWith(prefix)) return null
+  const n = Number(handle.slice(prefix.length))
+  return Number.isFinite(n) ? n : null
+}
+
+/** The media kind feeding a director input (frame/asset/preview/trim source). */
+function directorInputKind(
+  src: MoodboardItem | undefined,
+  items: MoodboardItem[],
+  connectors: MoodboardConnector[],
+  frames: Frame[],
+  assets: Asset[],
+  depth = 0,
+): 'image' | 'video' | 'audio' {
+  if (!src || depth > 8) return 'video'
+  if (src.type === 'asset' && src.assetId) {
+    return assets.find((a) => a.id === src.assetId)?.kind ?? 'video'
+  }
+  if (src.type === 'frame' && src.frameId) {
+    return frames.find((f) => f.id === src.frameId)?.kind ?? 'video'
+  }
+  if (src.type === 'preview') {
+    const feed = connectors.find((k) => k.toItemId === src.id)
+    const ff = feed ? items.find((it) => it.id === feed.fromItemId) : undefined
+    return ff?.frameId ? (frames.find((f) => f.id === ff.frameId)?.kind ?? 'video') : 'video'
+  }
+  if (src.type === 'trim') {
+    // Follow the trim node's input to the real source kind.
+    const feed = connectors.find((k) => k.toItemId === src.id)
+    const up = feed ? items.find((it) => it.id === feed.fromItemId) : undefined
+    return directorInputKind(up, items, connectors, frames, assets, depth + 1)
+  }
+  return 'video'
+}
+
 const FALLBACK_TEXT: TextItemData = {
   text: '',
   fontSize: 18,
@@ -139,11 +181,14 @@ function Board(): React.JSX.Element {
   const addFrameItemInLayer = useMoodboardStore((s) => s.addFrameItemInLayer)
   const addPreview = useMoodboardStore((s) => s.addPreview)
   const addLayer = useMoodboardStore((s) => s.addLayer)
+  const addDirector = useMoodboardStore((s) => s.addDirector)
+  const addTrim = useMoodboardStore((s) => s.addTrim)
   const addEmptyFrame = useMoodboardStore((s) => s.addEmptyFrame)
   const duplicateItems = useMoodboardStore((s) => s.duplicateItems)
   const undo = useMoodboardStore((s) => s.undo)
   const redo = useMoodboardStore((s) => s.redo)
   const addSourceInput = useFrameStore((s) => s.addSourceInput)
+  const frames = useFrameStore((s) => s.frames)
   const assets = useAssetStore((s) => s.assets)
   const loadAssets = useAssetStore((s) => s.load)
   const loadFrames = useFrameStore((s) => s.load)
@@ -176,6 +221,13 @@ function Board(): React.JSX.Element {
   useEffect(() => {
     setNodes(toNodes(items, assetsById))
   }, [items, assetsById, setNodes])
+
+  // Director render progress (main → renderer) drives the editor + node progress UI.
+  useEffect(() => {
+    return window.inlineStudio.timeline.onProgress((e) => {
+      useTimelineStore.getState().setProgress(e.ownerItemId, e.fraction >= 1 ? null : e.fraction)
+    })
+  }, [])
 
   // Edges are managed by useEdgesState (so selection/hover changes apply via
   // onEdgesChange) but kept in sync with the persisted connectors.
@@ -277,13 +329,33 @@ function Board(): React.JSX.Element {
 
   const onConnect = (c: Connection): void => {
     if (!c.source || !c.target || c.source === c.target) return
+    const src = items.find((it) => it.id === c.source)
+    const tgt = items.find((it) => it.id === c.target)
+
+    // Director input: auto-assign the next free slot on the matching layer (by source
+    // kind), so wiring grows without the user having to hit a specific tiny handle dot —
+    // and the inputs keep increasing one-by-one as they fill.
+    if (tgt?.type === 'director') {
+      const prefix =
+        directorInputKind(src, items, connectors, frames, assets) === 'audio' ? 'ain-' : 'vin-'
+      const used = new Set(
+        connectors
+          .filter((k) => k.toItemId === tgt.id)
+          .map((k) => slotIndex(k.data?.targetHandle as string | undefined, prefix))
+          .filter((n): n is number => n !== null),
+      )
+      const explicit = slotIndex(c.targetHandle ?? undefined, prefix)
+      let s = explicit !== null && !used.has(explicit) ? explicit : 0
+      while (used.has(s)) s++
+      void connect(c.source, tgt.id, c.sourceHandle ?? 'out', `${prefix}${s}`)
+      return
+    }
+
     void connect(c.source, c.target, c.sourceHandle ?? null, c.targetHandle ?? null)
 
     // Preview output → Frame input: also wire the data link. The frame takes the
     // preview's source frame (whoever feeds the preview) as a live input — resolved
     // to that frame's hero take at generate time.
-    const src = items.find((it) => it.id === c.source)
-    const tgt = items.find((it) => it.id === c.target)
     if (
       src?.type === 'preview' &&
       tgt?.type === 'frame' &&
@@ -296,6 +368,8 @@ function Board(): React.JSX.Element {
         : undefined
       if (sourceFrameId) void addSourceInput(tgt.frameId, sourceFrameId)
     }
+    // Wiring into a Director node's input handle just persists the connector (above); the
+    // node derives its video/audio layers from its connections reactively.
   }
 
   // Dropping an OUTPUT link on empty canvas suggests what to create next (preview/frame).
@@ -348,6 +422,28 @@ function Board(): React.JSX.Element {
         : undefined
     }
     if (sourceFrameId && item.frameId) await addSourceInput(item.frameId, sourceFrameId)
+  }
+
+  /** Create a director node and wire the dropped output into its matching layer. */
+  const suggestDirector = async (): Promise<void> => {
+    const m = connectMenu
+    setConnectMenu(null)
+    if (!m) return
+    const item = await addDirector(m.flowX, m.flowY)
+    if (!item) return
+    const src = items.find((it) => it.id === m.fromItemId)
+    const handle =
+      directorInputKind(src, items, connectors, frames, assets) === 'audio' ? 'ain-0' : 'vin-0'
+    await connect(m.fromItemId, item.id, 'out', handle)
+  }
+
+  /** Create an "Edit Video/Audio" (trim) node fed by the dropped output. */
+  const suggestTrim = async (): Promise<void> => {
+    const m = connectMenu
+    setConnectMenu(null)
+    if (!m) return
+    const item = await addTrim(m.flowX, m.flowY)
+    if (item) await connect(m.fromItemId, item.id, 'out', 'in')
   }
 
   const onDrop = (e: React.DragEvent): void => {
@@ -504,6 +600,18 @@ function Board(): React.JSX.Element {
               >
                 New frame (input)
               </button>
+              <button
+                onClick={() => void suggestDirector()}
+                className="px-2.5 py-1.5 text-left text-zinc-200 hover:bg-surface"
+              >
+                Video Director
+              </button>
+              <button
+                onClick={() => void suggestTrim()}
+                className="px-2.5 py-1.5 text-left text-zinc-200 hover:bg-surface"
+              >
+                Edit Video/Audio
+              </button>
             </div>
           </>
         )}
@@ -522,6 +630,14 @@ function Board(): React.JSX.Element {
           onAddPreview={() => {
             const { x, y } = centre()
             void addPreview(x, y)
+          }}
+          onAddDirector={() => {
+            const { x, y } = centre()
+            void addDirector(x, y)
+          }}
+          onAddTrim={() => {
+            const { x, y } = centre()
+            void addTrim(x, y)
           }}
           onAddText={() => {
             const { x, y } = centre()
@@ -619,7 +735,10 @@ function EmptyCanvasHint(): React.JSX.Element {
 /** Map items to React Flow nodes — layers first so they precede their children. */
 function toNodes(
   items: MoodboardItem[],
-  assetsById: Map<string, { filePath: string; kind: string; name: string }>,
+  assetsById: Map<
+    string,
+    { filePath: string; kind: string; name: string; thumbPath?: string | null }
+  >,
 ): Node[] {
   const ordered = [...items].sort(
     (a, b) => (a.type === 'layer' ? -1 : 0) - (b.type === 'layer' ? -1 : 0),
@@ -629,7 +748,10 @@ function toNodes(
 
 function itemToNode(
   item: MoodboardItem,
-  assetsById: Map<string, { filePath: string; kind: string; name: string }>,
+  assetsById: Map<
+    string,
+    { filePath: string; kind: string; name: string; thumbPath?: string | null }
+  >,
 ): Node {
   const common: Node = {
     id: item.id,
@@ -652,11 +774,23 @@ function itemToNode(
   if (item.type === 'preview') {
     return { ...common, type: 'preview', data: {} }
   }
+  if (item.type === 'director') {
+    return {
+      ...common,
+      type: 'director',
+      data: { name: item.data.name ?? 'Director', previewUrl: item.data.directorPreview },
+    }
+  }
+  if (item.type === 'trim') {
+    return { ...common, type: 'trim', data: {} }
+  }
   if (item.type === 'text') {
     return { ...common, type: 'text', data: { text: item.data.text ?? FALLBACK_TEXT } }
   }
   const asset = item.assetId ? assetsById.get(item.assetId) : undefined
   const src = asset ? mediaUrl(asset.filePath) : ''
   const type = asset?.kind === 'video' ? 'video' : asset?.kind === 'audio' ? 'audio' : 'image'
-  return { ...common, type, data: { src, name: asset?.name ?? '' } }
+  const waveform =
+    asset?.kind === 'audio' && asset.thumbPath ? mediaUrl(asset.thumbPath) : undefined
+  return { ...common, type, data: { src, name: asset?.name ?? '', waveform } }
 }
