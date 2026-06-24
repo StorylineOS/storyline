@@ -37,6 +37,7 @@ import { FrameNode } from './nodes/FrameNode'
 import { PreviewNode } from './nodes/PreviewNode'
 import { LayerNode } from './nodes/LayerNode'
 import { DirectorNode } from './nodes/DirectorNode'
+import { TrimNode } from './nodes/TrimNode'
 import { DeletableEdge } from './edges/DeletableEdge'
 import { SideMenu } from './SideMenu'
 import { CanvasToolbar } from './CanvasToolbar'
@@ -51,6 +52,7 @@ const nodeTypes: NodeTypes = {
   preview: PreviewNode,
   layer: LayerNode,
   director: DirectorNode,
+  trim: TrimNode,
 }
 
 const edgeTypes: EdgeTypes = {
@@ -122,15 +124,16 @@ function slotIndex(handle: string | undefined, prefix: string): number | null {
   return Number.isFinite(n) ? n : null
 }
 
-/** The media kind feeding a director input (frame kind / asset kind / preview's frame). */
+/** The media kind feeding a director input (frame/asset/preview/trim source). */
 function directorInputKind(
   src: MoodboardItem | undefined,
   items: MoodboardItem[],
   connectors: MoodboardConnector[],
   frames: Frame[],
   assets: Asset[],
+  depth = 0,
 ): 'image' | 'video' | 'audio' {
-  if (!src) return 'video'
+  if (!src || depth > 8) return 'video'
   if (src.type === 'asset' && src.assetId) {
     return assets.find((a) => a.id === src.assetId)?.kind ?? 'video'
   }
@@ -141,6 +144,12 @@ function directorInputKind(
     const feed = connectors.find((k) => k.toItemId === src.id)
     const ff = feed ? items.find((it) => it.id === feed.fromItemId) : undefined
     return ff?.frameId ? (frames.find((f) => f.id === ff.frameId)?.kind ?? 'video') : 'video'
+  }
+  if (src.type === 'trim') {
+    // Follow the trim node's input to the real source kind.
+    const feed = connectors.find((k) => k.toItemId === src.id)
+    const up = feed ? items.find((it) => it.id === feed.fromItemId) : undefined
+    return directorInputKind(up, items, connectors, frames, assets, depth + 1)
   }
   return 'video'
 }
@@ -173,6 +182,7 @@ function Board(): React.JSX.Element {
   const addPreview = useMoodboardStore((s) => s.addPreview)
   const addLayer = useMoodboardStore((s) => s.addLayer)
   const addDirector = useMoodboardStore((s) => s.addDirector)
+  const addTrim = useMoodboardStore((s) => s.addTrim)
   const addEmptyFrame = useMoodboardStore((s) => s.addEmptyFrame)
   const duplicateItems = useMoodboardStore((s) => s.duplicateItems)
   const undo = useMoodboardStore((s) => s.undo)
@@ -414,6 +424,28 @@ function Board(): React.JSX.Element {
     if (sourceFrameId && item.frameId) await addSourceInput(item.frameId, sourceFrameId)
   }
 
+  /** Create a director node and wire the dropped output into its matching layer. */
+  const suggestDirector = async (): Promise<void> => {
+    const m = connectMenu
+    setConnectMenu(null)
+    if (!m) return
+    const item = await addDirector(m.flowX, m.flowY)
+    if (!item) return
+    const src = items.find((it) => it.id === m.fromItemId)
+    const handle =
+      directorInputKind(src, items, connectors, frames, assets) === 'audio' ? 'ain-0' : 'vin-0'
+    await connect(m.fromItemId, item.id, 'out', handle)
+  }
+
+  /** Create an "Edit Video/Audio" (trim) node fed by the dropped output. */
+  const suggestTrim = async (): Promise<void> => {
+    const m = connectMenu
+    setConnectMenu(null)
+    if (!m) return
+    const item = await addTrim(m.flowX, m.flowY)
+    if (item) await connect(m.fromItemId, item.id, 'out', 'in')
+  }
+
   const onDrop = (e: React.DragEvent): void => {
     e.preventDefault()
     const drop = screenToFlowPosition({ x: e.clientX, y: e.clientY })
@@ -568,6 +600,18 @@ function Board(): React.JSX.Element {
               >
                 New frame (input)
               </button>
+              <button
+                onClick={() => void suggestDirector()}
+                className="px-2.5 py-1.5 text-left text-zinc-200 hover:bg-surface"
+              >
+                Video Director
+              </button>
+              <button
+                onClick={() => void suggestTrim()}
+                className="px-2.5 py-1.5 text-left text-zinc-200 hover:bg-surface"
+              >
+                Edit Video/Audio
+              </button>
             </div>
           </>
         )}
@@ -590,6 +634,10 @@ function Board(): React.JSX.Element {
           onAddDirector={() => {
             const { x, y } = centre()
             void addDirector(x, y)
+          }}
+          onAddTrim={() => {
+            const { x, y } = centre()
+            void addTrim(x, y)
           }}
           onAddText={() => {
             const { x, y } = centre()
@@ -732,6 +780,9 @@ function itemToNode(
       type: 'director',
       data: { name: item.data.name ?? 'Director', previewUrl: item.data.directorPreview },
     }
+  }
+  if (item.type === 'trim') {
+    return { ...common, type: 'trim', data: {} }
   }
   if (item.type === 'text') {
     return { ...common, type: 'text', data: { text: item.data.text ?? FALLBACK_TEXT } }

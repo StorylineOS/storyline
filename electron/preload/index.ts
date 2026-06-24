@@ -122,6 +122,7 @@ const api: InlineStudioApi = {
     addLayer: (x: number, y: number) => ipcRenderer.invoke(IpcChannels.moodboard.addLayer, x, y),
     addDirector: (x: number, y: number) =>
       ipcRenderer.invoke(IpcChannels.moodboard.addDirector, x, y),
+    addTrim: (x: number, y: number) => ipcRenderer.invoke(IpcChannels.moodboard.addTrim, x, y),
     updateItem: (id: string, patch: MoodboardItemPatch) =>
       ipcRenderer.invoke(IpcChannels.moodboard.updateItem, id, patch),
     deleteItem: (id: string) => ipcRenderer.invoke(IpcChannels.moodboard.deleteItem, id),
@@ -141,11 +142,14 @@ const api: InlineStudioApi = {
         targetHandle,
       ),
     deleteConnector: (id: string) => ipcRenderer.invoke(IpcChannels.moodboard.deleteConnector, id),
+    setConnectorVolume: (id: string, volume: number) =>
+      ipcRenderer.invoke(IpcChannels.moodboard.setConnectorVolume, id, volume),
     replaceBoard: (items: MoodboardItem[], connectors: MoodboardConnector[]) =>
       ipcRenderer.invoke(IpcChannels.moodboard.replaceBoard, items, connectors),
   },
   timeline: {
     resolve: (ownerItemId: string) => ipcRenderer.invoke(IpcChannels.timeline.resolve, ownerItemId),
+    resolveTrim: (itemId: string) => ipcRenderer.invoke(IpcChannels.timeline.resolveTrim, itemId),
     setVolumes: (ownerItemId: string, l1Volume: number, l2Volume: number) =>
       ipcRenderer.invoke(IpcChannels.timeline.setVolumes, ownerItemId, l1Volume, l2Volume),
     buildPreview: (ownerItemId: string) =>

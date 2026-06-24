@@ -47,6 +47,7 @@ interface MoodboardState {
   addPreview: (x: number, y: number) => Promise<MoodboardItem | null>
   addLayer: (x: number, y: number) => Promise<void>
   addDirector: (x: number, y: number) => Promise<MoodboardItem | null>
+  addTrim: (x: number, y: number) => Promise<MoodboardItem | null>
   /** Place an existing asset on the board, parented to a layer when given. */
   addFrameFromAssetInLayer: (
     assetId: string,
@@ -74,6 +75,7 @@ interface MoodboardState {
     targetHandle?: string | null,
   ) => Promise<void>
   disconnect: (connectorId: string) => Promise<void>
+  setConnectorVolume: (connectorId: string, volume: number) => Promise<void>
   reset: () => void
 }
 
@@ -128,6 +130,9 @@ async function copyOne(
       break
     case 'director':
       res = await m.addDirector(x, y)
+      break
+    case 'trim':
+      res = await m.addTrim(x, y)
       break
     default:
       return null
@@ -334,6 +339,22 @@ export const useMoodboardStore = create<MoodboardState>((set, get) => ({
     }
   },
 
+  addTrim: async (x, y) => {
+    try {
+      get().record()
+      const res = await window.inlineStudio.moodboard.addTrim(x, y)
+      if (!res.ok) {
+        set({ error: res.error })
+        return null
+      }
+      set((s) => ({ items: [...s.items, res.value] }))
+      return res.value
+    } catch (e) {
+      set({ error: ipcErrorMessage(e) })
+      return null
+    }
+  },
+
   addFrameFromAssetInLayer: async (assetId, x, y, parentId) => {
     try {
       get().record()
@@ -375,6 +396,21 @@ export const useMoodboardStore = create<MoodboardState>((set, get) => ({
       const res = await window.inlineStudio.moodboard.deleteConnector(connectorId)
       if (!res.ok) return set({ error: res.error })
       set((s) => ({ connectors: s.connectors.filter((c) => c.id !== connectorId) }))
+    } catch (e) {
+      set({ error: ipcErrorMessage(e) })
+    }
+  },
+
+  setConnectorVolume: async (connectorId, volume) => {
+    // Optimistic: update the connector so the director re-resolves + rebuilds.
+    set((s) => ({
+      connectors: s.connectors.map((c) =>
+        c.id === connectorId ? { ...c, data: { ...c.data, volume } } : c,
+      ),
+    }))
+    try {
+      const res = await window.inlineStudio.moodboard.setConnectorVolume(connectorId, volume)
+      if (!res.ok) set({ error: res.error })
     } catch (e) {
       set({ error: ipcErrorMessage(e) })
     }

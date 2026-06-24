@@ -62,6 +62,7 @@ export function DirectorNode({ id, data, selected }: NodeProps): React.JSX.Eleme
   const connectors = useMoodboardStore((s) => s.connectors)
   const items = useMoodboardStore((s) => s.items)
   const reloadBoard = useMoodboardStore((s) => s.load)
+  const setConnectorVolume = useMoodboardStore((s) => s.setConnectorVolume)
   const { setCenter } = useReactFlow()
   const timeline = useTimelineStore((s) => s.timelineByOwner[id])
   const progress = useTimelineStore((s) => s.progressByOwner[id])
@@ -71,14 +72,21 @@ export function DirectorNode({ id, data, selected }: NodeProps): React.JSX.Eleme
   const exportTimeline = useTimelineStore((s) => s.exportTimeline)
 
   const incoming = useMemo(() => connectors.filter((c) => c.toItemId === id), [connectors, id])
-  // A signature of the wired inputs — drives re-resolve and rebuild.
+  // A signature of the wired inputs — drives re-resolve and rebuild. Includes any upstream
+  // trim node's in/out window so editing a trim re-resolves this director's timeline.
   const connSig = useMemo(
     () =>
       incoming
-        .map((c) => `${c.fromItemId}:${String(c.data?.targetHandle ?? '')}`)
+        .map((c) => {
+          const from = items.find((it) => it.id === c.fromItemId)
+          const t = from?.type === 'trim' ? from.data.trim : undefined
+          const trimSig = t ? `${t.inPoint},${t.outPoint}` : ''
+          const vol = typeof c.data?.volume === 'number' ? c.data.volume : ''
+          return `${c.fromItemId}:${String(c.data?.targetHandle ?? '')}:${trimSig}:${vol}`
+        })
         .sort()
         .join('|'),
-    [incoming],
+    [incoming, items],
   )
 
   const usedVideo = new Set(
@@ -230,6 +238,8 @@ export function DirectorNode({ id, data, selected }: NodeProps): React.JSX.Eleme
               />
             )}
 
+            {hasClips && <Ruler total={total} />}
+
             <TrackRow label="VIDEO">
               {video.map((c) => (
                 <ClipBlock
@@ -247,7 +257,13 @@ export function DirectorNode({ id, data, selected }: NodeProps): React.JSX.Eleme
               control={<VolumeSlider value={l1} onChange={(v) => void setVolumes(id, v, l2)} />}
             >
               {video.map((c) => (
-                <ClipBlock key={c.key} clip={c} total={total} kind="audio" />
+                <ClipBlock
+                  key={c.key}
+                  clip={c}
+                  total={total}
+                  kind="audio"
+                  onSetVolume={(v) => void setConnectorVolume(c.connectorId, v)}
+                />
               ))}
             </TrackRow>
 
@@ -297,25 +313,29 @@ function ClipBlock({
   total,
   kind,
   onNavigate,
+  onSetVolume,
 }: {
   clip: DirectorClip
   total: number
   kind: 'video' | 'audio'
   /** Pan the canvas to the clip's source frame (only for frame-backed clips). */
   onNavigate?: (frameId: string) => void
+  /** Per-input volume control (L1 audio clips). */
+  onSetVolume?: (volume: number) => void
 }): React.JSX.Element {
   const width = `${(clip.duration / total) * 100}%`
   if (kind === 'audio') {
     return (
       <div
         style={{ width }}
-        className="flex h-full items-center border-r border-black/40 bg-emerald-500/10 px-0.5"
+        className="relative flex h-full items-center border-r border-black/40 bg-emerald-500/10 px-0.5"
         title={`${clip.label} (${clip.duration.toFixed(1)}s)`}
       >
         <Waveform
           url={clip.audioPeaks ? mediaUrl(clip.audioPeaks) : null}
           className="h-2/3 w-full text-emerald-400"
         />
+        {onSetVolume && <ClipVolume volume={clip.volume} onChange={onSetVolume} />}
       </div>
     )
   }
@@ -350,6 +370,66 @@ function ClipBlock({
         Frame {clip.label}
       </button>
     </div>
+  )
+}
+
+/** A seconds ruler aligned to the track lanes (0 → total). */
+function Ruler({ total }: { total: number }): React.JSX.Element {
+  const step = total <= 10 ? 1 : total <= 30 ? 2 : total <= 60 ? 5 : total <= 180 ? 10 : 30
+  const ticks: number[] = []
+  for (let t = step; t < total - step / 2; t += step) ticks.push(t)
+  return (
+    <div className="relative mb-1 h-3 w-full border-b border-border/40">
+      <span className="absolute left-0 top-0 text-[8px] text-zinc-500">0s</span>
+      {ticks.map((t) => (
+        <span
+          key={t}
+          className="absolute top-0 -translate-x-1/2 text-[8px] text-zinc-500"
+          style={{ left: `${(t / total) * 100}%` }}
+        >
+          {t}s
+        </span>
+      ))}
+      <span className="absolute right-0 top-0 text-[8px] text-zinc-500">
+        {total < 10 ? total.toFixed(1) : Math.round(total)}s
+      </span>
+    </div>
+  )
+}
+
+/** Per-input volume: a speaker icon that toggles an inline slider over the clip. */
+function ClipVolume({
+  volume,
+  onChange,
+}: {
+  volume: number
+  onChange: (v: number) => void
+}): React.JSX.Element {
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      <button
+        onClick={(e) => {
+          e.stopPropagation()
+          setOpen((o) => !o)
+        }}
+        title={`Volume ${Math.round(volume * 100)}%`}
+        className="nodrag absolute left-0.5 top-0.5 z-10 flex h-3.5 w-3.5 items-center justify-center rounded bg-black/60 text-[8px] hover:bg-black/80"
+      >
+        {volume <= 0 ? '🔇' : '🔊'}
+      </button>
+      {open && (
+        <input
+          type="range"
+          min={0}
+          max={100}
+          value={Math.round(volume * 100)}
+          onChange={(e) => onChange(Number(e.target.value) / 100)}
+          onPointerDown={(e) => e.stopPropagation()}
+          className="nodrag absolute inset-x-1 bottom-0.5 z-10 h-1 accent-emerald-400"
+        />
+      )}
+    </>
   )
 }
 

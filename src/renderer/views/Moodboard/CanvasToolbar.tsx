@@ -9,12 +9,14 @@ export function CanvasToolbar({
   onAddPreview,
   onAddText,
   onAddDirector,
+  onAddTrim,
 }: {
   onAddFrame: () => void
   onAddLayer: () => void
   onAddPreview: () => void
   onAddText: () => void
   onAddDirector: () => void
+  onAddTrim: () => void
 }): React.JSX.Element {
   return (
     <div className="absolute bottom-4 left-4 z-10 flex flex-col gap-1 rounded-lg border border-border bg-panel/95 p-1 shadow-lg backdrop-blur">
@@ -29,6 +31,9 @@ export function CanvasToolbar({
       </ToolButton>
       <ToolButton label="Add Video Director" onClick={onAddDirector}>
         <ClapperboardIcon />
+      </ToolButton>
+      <ToolButton label="Add Edit Video/Audio" onClick={onAddTrim}>
+        <ScissorsIcon />
       </ToolButton>
       <ToolButton label="Add text" onClick={onAddText}>
         <span className="text-base font-bold leading-none">T</span>
@@ -116,6 +121,24 @@ function ClapperboardIcon(): React.JSX.Element {
       <path d="M3 11h18v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
       <path d="M8 15.5h8" />
       <path d="M8 18.5h6" />
+    </svg>
+  )
+}
+
+function ScissorsIcon(): React.JSX.Element {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-[18px] w-[18px]"
+    >
+      <circle cx="6" cy="6" r="3" />
+      <circle cx="6" cy="18" r="3" />
+      <path d="M20 4 8.12 15.88M14.47 14.48 20 20M8.12 8.12 12 12" />
     </svg>
   )
 }

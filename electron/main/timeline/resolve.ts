@@ -11,6 +11,7 @@ import { existsSync } from 'node:fs'
 import type {
   DirectorTimeline,
   DirectorClip,
+  TrimResolved,
   AssetKind,
   MoodboardItem,
   MoodboardConnector,
@@ -42,6 +43,9 @@ interface SourceRef {
   filePath: string
   kind: AssetKind
   label: string
+  /** Trim window (seconds) applied by an upstream "Edit Video/Audio" node, or null. */
+  trimIn: number | null
+  trimOut: number | null
 }
 
 function slotIndex(handle: string | undefined, prefix: string): number | null {
@@ -50,13 +54,18 @@ function slotIndex(handle: string | undefined, prefix: string): number | null {
   return Number.isFinite(n) ? n : null
 }
 
-/** A connector's source item → a media ref (frame hero take / preview's frame / asset). */
+/**
+ * A connector's source item → a media ref. Walks frame/preview/asset sources, and follows
+ * a trim ("Edit Video/Audio") node's input, attaching its in/out window. `depth` guards
+ * against trim→trim cycles.
+ */
 function resolveSourceRef(
   fromItem: MoodboardItem | undefined,
   items: MoodboardItem[],
   connectors: MoodboardConnector[],
+  depth = 0,
 ): SourceRef | null {
-  if (!fromItem) return null
+  if (!fromItem || depth > 8) return null
   if (fromItem.type === 'frame' && fromItem.frameId) {
     const out = resolveFrameOutput(fromItem.frameId)
     if (!out) return null
@@ -67,6 +76,8 @@ function resolveSourceRef(
       filePath: out.filePath,
       kind: out.kind,
       label,
+      trimIn: null,
+      trimOut: null,
     }
   }
   if (fromItem.type === 'preview') {
@@ -81,9 +92,20 @@ function resolveSourceRef(
         filePath: out.filePath,
         kind: out.kind,
         label: safeFrameName(feedFrame.frameId),
+        trimIn: null,
+        trimOut: null,
       }
     }
     return null
+  }
+  if (fromItem.type === 'trim') {
+    // Follow the trim node's single input to the real source, then attach its window.
+    const feed = connectors.find((k) => k.toItemId === fromItem.id)
+    const upstream = feed ? items.find((it) => it.id === feed.fromItemId) : undefined
+    const ref = resolveSourceRef(upstream, items, connectors, depth + 1)
+    if (!ref) return null
+    const t = fromItem.data.trim
+    return { ...ref, trimIn: t ? t.inPoint : null, trimOut: t ? t.outPoint : null }
   }
   if (fromItem.type === 'asset' && fromItem.assetId) {
     const a = assetFile(fromItem.assetId)
@@ -94,6 +116,8 @@ function resolveSourceRef(
       filePath: a.filePath,
       kind: a.kind,
       label: a.name,
+      trimIn: null,
+      trimOut: null,
     }
   }
   return null
@@ -151,7 +175,17 @@ export async function resolveTimeline(ownerItemId: string): Promise<ResolvedTime
           : ffmpegAvailable()
             ? await probeMedia(absPath)
             : { durationSec: STILL_SECONDS, hasAudio: ref.kind === 'audio' }
-      const duration = probe.durationSec > 0 ? probe.durationSec : STILL_SECONDS
+      const fullDuration = probe.durationSec > 0 ? probe.durationSec : STILL_SECONDS
+
+      // Apply an upstream trim node's window (images can't be trimmed in time).
+      let inPoint = 0
+      let outPoint = fullDuration
+      if (ref.kind !== 'image' && (ref.trimIn !== null || ref.trimOut !== null)) {
+        inPoint = Math.min(Math.max(ref.trimIn ?? 0, 0), fullDuration)
+        const rawOut = ref.trimOut ?? 0
+        outPoint = rawOut > inPoint ? Math.min(rawOut, fullDuration) : fullDuration
+      }
+      const duration = Math.max(0.04, outPoint - inPoint)
 
       // A waveform for the clip's audio (video L1, or the L2 audio itself).
       let audioPeaks: string | null = null
@@ -173,7 +207,7 @@ export async function resolveTimeline(ownerItemId: string): Promise<ResolvedTime
             absPath,
             join(folder, stripRel),
             FILMSTRIP_FRAMES,
-            duration,
+            fullDuration,
           ).catch(() => false)
         }
         if (existsSync(join(folder, stripRel))) thumbnail = stripRel
@@ -181,8 +215,14 @@ export async function resolveTimeline(ownerItemId: string): Promise<ResolvedTime
         thumbnail = ref.filePath
       }
 
+      // Per-input audio volume stored on the connector (default 1), times the layer master.
+      const inputVolume =
+        typeof conn.data?.volume === 'number' ? Math.min(1, Math.max(0, conn.data.volume)) : 1
+
       const clip: DirectorClip = {
         key: ref.sourceId,
+        connectorId: conn.id,
+        volume: inputVolume,
         frameId: ref.frameId,
         label: ref.label,
         kind: ref.kind,
@@ -199,10 +239,10 @@ export async function resolveTimeline(ownerItemId: string): Promise<ResolvedTime
         absPath,
         track,
         startTime: cursor,
-        inPoint: 0,
-        outPoint: duration,
+        inPoint,
+        outPoint,
         hasAudio: probe.hasAudio,
-        volume,
+        volume: volume * inputVolume,
       })
       cursor += duration
     }
@@ -212,4 +252,66 @@ export async function resolveTimeline(ownerItemId: string): Promise<ResolvedTime
   await layout(pick(AUDIO_PREFIX), 1, l2Volume)
 
   return { timeline: display, clips: resolved }
+}
+
+/**
+ * Resolve the full source media behind a trim ("Edit Video/Audio") node's single input,
+ * for the node's UI (the user picks an in/out window over this full source). Ensures a
+ * filmstrip (video) / waveform (audio) exists. Null if nothing is wired in.
+ */
+export async function resolveTrim(itemId: string): Promise<TrimResolved | null> {
+  const folder = getOpenProjectFolder()
+  if (!folder) throw new Error('No project is open.')
+  const { items, connectors } = listBoard()
+  const feed = connectors.find((k) => k.toItemId === itemId)
+  const upstream = feed ? items.find((it) => it.id === feed.fromItemId) : undefined
+  const ref = resolveSourceRef(upstream, items, connectors)
+  if (!ref) return null
+  const absPath = join(folder, ref.filePath)
+  if (!existsSync(absPath)) return null
+
+  const probe =
+    ref.kind === 'image'
+      ? { durationSec: STILL_SECONDS, hasAudio: false }
+      : ffmpegAvailable()
+        ? await probeMedia(absPath)
+        : { durationSec: 0, hasAudio: ref.kind === 'audio' }
+  const durationSec =
+    probe.durationSec > 0 ? probe.durationSec : ref.kind === 'image' ? STILL_SECONDS : 0
+
+  let thumbnail: string | null = null
+  let audioPeaks: string | null = null
+  if (ref.kind === 'image') {
+    thumbnail = ref.filePath
+  } else if (ffmpegAvailable()) {
+    if (ref.kind === 'video') {
+      const stripRel = `thumbs/strip-${fileKey(ref.filePath)}.png`
+      if (!existsSync(join(folder, stripRel))) {
+        await generateFilmstrip(
+          absPath,
+          join(folder, stripRel),
+          FILMSTRIP_FRAMES,
+          durationSec || STILL_SECONDS,
+        ).catch(() => false)
+      }
+      if (existsSync(join(folder, stripRel))) thumbnail = stripRel
+    }
+    if (ref.kind === 'audio' || (ref.kind === 'video' && probe.hasAudio)) {
+      const peaksRel = audioPeaksPath(fileKey(ref.filePath))
+      if (!existsSync(join(folder, peaksRel))) {
+        await generatePeaks(absPath, join(folder, peaksRel)).catch(() => false)
+      }
+      if (existsSync(join(folder, peaksRel))) audioPeaks = peaksRel
+    }
+  }
+
+  return {
+    key: ref.sourceId,
+    kind: ref.kind,
+    label: ref.label,
+    durationSec,
+    mediaPath: ref.filePath,
+    thumbnail,
+    audioPeaks,
+  }
 }

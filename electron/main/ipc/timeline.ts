@@ -1,8 +1,8 @@
 /** IPC handlers for director-node timelines. Payloads come from the renderer — validate. */
 import { IpcChannels } from '@shared/ipc'
-import type { DirectorTimeline } from '@shared/types'
+import type { DirectorTimeline, TrimResolved } from '@shared/types'
 import { handle } from './handler'
-import { resolveTimeline } from '../timeline/resolve'
+import { resolveTimeline, resolveTrim } from '../timeline/resolve'
 import { buildPreview, exportTimeline } from '../timeline/compose'
 import { getMoodboardItem, updateItem } from '../moodboard/store'
 
@@ -22,6 +22,10 @@ export function registerTimelineHandlers(): void {
     const { timeline } = await resolveTimeline(str(ownerItemId, 'owner item id'))
     return timeline
   })
+
+  handle<[string], TrimResolved | null>(IpcChannels.timeline.resolveTrim, (itemId) =>
+    resolveTrim(str(itemId, 'item id')),
+  )
 
   handle<[string, number, number], void>(
     IpcChannels.timeline.setVolumes,

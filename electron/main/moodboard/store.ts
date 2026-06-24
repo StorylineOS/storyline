@@ -330,6 +330,28 @@ export function addDirector(x: number, y: number): MoodboardItem {
   })
 }
 
+/** Add an "Edit Video/Audio" (trim) node: 1 input + 1 output, with an in/out window. */
+export function addTrim(x: number, y: number): MoodboardItem {
+  const now = Date.now()
+  return insertItem({
+    id: randomUUID(),
+    projectId: projectId(),
+    type: 'trim',
+    assetId: null,
+    frameId: null,
+    parentId: null,
+    data: { trim: { inPoint: 0, outPoint: 0 } },
+    x,
+    y,
+    width: 360,
+    height: 170,
+    rotation: 0,
+    zIndex: nextZIndex(),
+    createdAt: now,
+    updatedAt: now,
+  })
+}
+
 export function updateItem(id: string, patch: MoodboardItemPatch): MoodboardItem {
   getItem(id) // ensure exists
   const sets: string[] = []
@@ -412,4 +434,15 @@ export function createConnector(
 
 export function deleteConnector(id: string): void {
   getDb().prepare('DELETE FROM moodboard_connectors WHERE id = ?').run(id)
+}
+
+/** Set the per-input audio volume (0..1) stored on a connector (director L1 inputs). */
+export function setConnectorVolume(id: string, volume: number): void {
+  const db = getDb()
+  const row = db.prepare('SELECT data FROM moodboard_connectors WHERE id = ?').get(id) as
+    | { data: string | null }
+    | undefined
+  const data = (row?.data ? JSON.parse(row.data) : {}) as Record<string, unknown>
+  data.volume = Math.min(1, Math.max(0, volume))
+  db.prepare('UPDATE moodboard_connectors SET data = ? WHERE id = ?').run(JSON.stringify(data), id)
 }

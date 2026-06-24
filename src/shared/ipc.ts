@@ -16,6 +16,7 @@ import type {
   MoodboardSnapshot,
   MoodboardItemData,
   DirectorTimeline,
+  TrimResolved,
   TimelineProgressEvent,
   Frame,
   Take,
@@ -119,15 +120,18 @@ export const IpcChannels = {
     addPreview: 'moodboard:addPreview',
     addLayer: 'moodboard:addLayer',
     addDirector: 'moodboard:addDirector',
+    addTrim: 'moodboard:addTrim',
     updateItem: 'moodboard:updateItem',
     deleteItem: 'moodboard:deleteItem',
     importAndPlace: 'moodboard:importAndPlace',
     createConnector: 'moodboard:createConnector',
     deleteConnector: 'moodboard:deleteConnector',
+    setConnectorVolume: 'moodboard:setConnectorVolume',
     replaceBoard: 'moodboard:replaceBoard',
   },
   timeline: {
     resolve: 'timeline:resolve',
+    resolveTrim: 'timeline:resolveTrim',
     setVolumes: 'timeline:setVolumes',
     buildPreview: 'timeline:buildPreview',
     export: 'timeline:export',
@@ -332,6 +336,8 @@ export interface InlineStudioApi {
     addLayer(x: number, y: number): Promise<Result<MoodboardItem>>
     /** Add a video-director node (timeline-in-a-node) at (x, y). */
     addDirector(x: number, y: number): Promise<Result<MoodboardItem>>
+    /** Add an "Edit Video/Audio" (trim) node at (x, y). */
+    addTrim(x: number, y: number): Promise<Result<MoodboardItem>>
     updateItem(id: string, patch: MoodboardItemPatch): Promise<Result<MoodboardItem>>
     deleteItem(id: string): Promise<Result<void>>
     /** Import media into the shared library AND place it on the board near (x, y). */
@@ -343,12 +349,16 @@ export interface InlineStudioApi {
       targetHandle?: string | null,
     ): Promise<Result<MoodboardConnector>>
     deleteConnector(id: string): Promise<Result<void>>
+    /** Set a connector's per-input audio volume (0..1) — director L1 inputs. */
+    setConnectorVolume(id: string, volume: number): Promise<Result<void>>
     /** Replace the entire board (used by canvas undo/redo). */
     replaceBoard(items: MoodboardItem[], connectors: MoodboardConnector[]): Promise<Result<void>>
   }
   timeline: {
     /** The derived timeline (video + L2 audio + volumes) for a director node. */
     resolve(ownerItemId: string): Promise<Result<DirectorTimeline>>
+    /** The full source media behind a trim node's input (for its UI); null if unwired. */
+    resolveTrim(itemId: string): Promise<Result<TrimResolved | null>>
     /** Set the L1/L2 layer volumes (0..1) on a director node. */
     setVolumes(ownerItemId: string, l1Volume: number, l2Volume: number): Promise<Result<void>>
     /** Render a low-res proxy preview; returns its project-relative path (null if empty). */
