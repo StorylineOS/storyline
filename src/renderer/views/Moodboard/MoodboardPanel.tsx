@@ -8,6 +8,7 @@ import {
   useNodesState,
   useEdgesState,
   useReactFlow,
+  useUpdateNodeInternals,
   useViewport,
   applyNodeChanges,
   type Node,
@@ -194,8 +195,10 @@ function Board(): React.JSX.Element {
   const loadFrames = useFrameStore((s) => s.load)
   const setCanvasSelection = useUiStore((s) => s.setCanvasSelection)
   const setCanvasCenter = useUiStore((s) => s.setCanvasCenter)
+  const mode = useUiStore((s) => s.mode)
   const wrapperRef = useRef<HTMLDivElement>(null)
   const { screenToFlowPosition, getNodes } = useReactFlow()
+  const updateNodeInternals = useUpdateNodeInternals()
   const [nodes, setNodes] = useNodesState<Node>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
   // In-memory clipboard for copy/paste; pasteCount cascades repeated pastes.
@@ -228,6 +231,29 @@ function Board(): React.JSX.Element {
       useTimelineStore.getState().setProgress(e.ownerItemId, e.fraction >= 1 ? null : e.fraction)
     })
   }, [])
+
+  // `onlyRenderVisibleElements` culls/sizes nodes from their measured dimensions, which
+  // come from the pane. While this canvas is hidden (Generate tab → display:none) or the
+  // window is minimized/occluded, the pane measures 0×0, so any node re-measured then gets
+  // stuck at zero size and stays invisible after returning — most visibly the preview
+  // nodes (frames self-correct via their aspect-fit re-measure). Force a fresh re-measure
+  // of every node whenever the canvas becomes visible again.
+  useEffect(() => {
+    if (mode !== 'moodboard') return
+    const remeasure = (): void => {
+      if (document.visibilityState !== 'visible') return
+      const ids = useMoodboardStore.getState().items.map((it) => it.id)
+      if (ids.length) updateNodeInternals(ids)
+    }
+    const raf = requestAnimationFrame(remeasure)
+    document.addEventListener('visibilitychange', remeasure)
+    window.addEventListener('focus', remeasure)
+    return () => {
+      cancelAnimationFrame(raf)
+      document.removeEventListener('visibilitychange', remeasure)
+      window.removeEventListener('focus', remeasure)
+    }
+  }, [mode, updateNodeInternals])
 
   // Edges are managed by useEdgesState (so selection/hover changes apply via
   // onEdgesChange) but kept in sync with the persisted connectors.
