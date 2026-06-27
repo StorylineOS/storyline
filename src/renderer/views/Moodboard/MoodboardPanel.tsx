@@ -814,7 +814,11 @@ function itemToNode(
     return { ...common, type: 'text', data: { text: item.data.text ?? FALLBACK_TEXT } }
   }
   const asset = item.assetId ? assetsById.get(item.assetId) : undefined
-  const src = asset ? mediaUrl(asset.filePath) : ''
+  // Images render from their downscaled thumbnail when available (full-res only in the
+  // Library/Preview); video/audio keep their own source.
+  const src = asset
+    ? mediaUrl(asset.kind === 'image' ? (asset.thumbPath ?? asset.filePath) : asset.filePath)
+    : ''
   const type = asset?.kind === 'video' ? 'video' : asset?.kind === 'audio' ? 'audio' : 'image'
   const waveform =
     asset?.kind === 'audio' && asset.thumbPath ? mediaUrl(asset.thumbPath) : undefined

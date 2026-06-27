@@ -253,6 +253,10 @@ function AssetThumb({
   onDelete: () => void
 }): React.JSX.Element {
   const url = mediaUrl(asset.filePath)
+  // Grid cells are small — render images from their downscaled thumbnail when present.
+  const imageSrc = mediaUrl(
+    asset.kind === 'image' ? (asset.thumbPath ?? asset.filePath) : asset.filePath,
+  )
   const videoSrc = mediaUrl(asset.previewPath ?? asset.filePath)
   const poster = asset.thumbPath ? mediaUrl(asset.thumbPath) : undefined
   const onContextMenu = useMediaContextMenu()
@@ -279,7 +283,7 @@ function AssetThumb({
       >
         <div className="flex aspect-video items-center justify-center bg-black/40">
           {asset.kind === 'image' && (
-            <img src={url} alt={asset.name} className="h-full w-full object-cover" />
+            <img src={imageSrc} alt={asset.name} className="h-full w-full object-cover" />
           )}
           {asset.kind === 'video' && (
             <VideoPreview src={videoSrc} poster={poster} className="h-full w-full object-cover" />

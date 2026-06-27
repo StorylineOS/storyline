@@ -13,6 +13,7 @@ import { getDb, getOpenProjectFolder } from '../db'
 import {
   ffmpegAvailable,
   generatePoster,
+  generateImageThumb,
   generatePeaks,
   probeVideo,
   isWebPlayable,
@@ -103,6 +104,20 @@ async function ensureWaveform(id: string, srcAbs: string, folder: string): Promi
 }
 
 /**
+ * Generate a downscaled JPEG thumbnail for an image in the background and store it as
+ * the asset's thumb_path, so nodes and the library grid stop decoding the full-res
+ * original. No-op if it can't be produced (the original still renders meanwhile).
+ */
+async function ensureImageThumb(id: string, srcAbs: string, folder: string): Promise<void> {
+  try {
+    const rel = `thumbs/${id}.jpg`
+    if (await generateImageThumb(srcAbs, join(folder, rel))) setThumbPath(id, rel)
+  } catch {
+    // ignore — the full-res original covers display; retried on next project open
+  }
+}
+
+/**
  * Resolve a video's Chromium-playable source into `preview_path` (background):
  *  - already a playable codec  → point preview_path at the original;
  *  - otherwise                 → transcode to H.264 and point preview_path at that.
@@ -177,6 +192,10 @@ async function importFile(absPath: string, folderId: string | null): Promise<Ass
   if (kind === 'video' && ffmpegAvailable()) {
     void ensurePlayable(id, join(folder, relative), folder, relative)
   }
+  // Background: downscale a thumbnail for images (full-res original covers the meantime).
+  if (kind === 'image' && ffmpegAvailable()) {
+    void ensureImageThumb(id, join(folder, relative), folder)
+  }
   // Background: render a waveform for audio (the 🎵 placeholder covers the meantime).
   if (kind === 'audio' && ffmpegAvailable()) {
     void ensureWaveform(id, join(folder, relative), folder)
@@ -242,6 +261,30 @@ export function backfillAudioAssets(): void {
       const srcAbs = join(folder, r.file_path)
       if (!existsSync(srcAbs)) continue
       await ensureWaveform(r.id, srcAbs, folder)
+    }
+  })()
+}
+
+/**
+ * Generate thumbnails for image assets imported before image thumbnails existed (keyed
+ * on a missing thumb_path). Background + sequential, like the video/audio backfills.
+ * Call after a project opens so older libraries speed up after the first open.
+ */
+export function backfillImageAssets(): void {
+  if (!ffmpegAvailable()) return
+  const folder = getOpenProjectFolder()
+  if (!folder) return
+  const rows = getDb()
+    .prepare("SELECT id, file_path FROM assets WHERE kind = 'image' AND thumb_path IS NULL")
+    .all() as Array<{ id: string; file_path: string }>
+  if (rows.length === 0) return
+
+  void (async () => {
+    for (const r of rows) {
+      if (getOpenProjectFolder() !== folder) return // project switched — stop
+      const srcAbs = join(folder, r.file_path)
+      if (!existsSync(srcAbs)) continue
+      await ensureImageThumb(r.id, srcAbs, folder)
     }
   })()
 }

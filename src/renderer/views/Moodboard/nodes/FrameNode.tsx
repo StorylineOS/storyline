@@ -92,8 +92,11 @@ export function FrameNode({ id, data, selected }: NodeProps): React.JSX.Element 
         return {
           id: i.id,
           assetId: a.id,
-          // Prefer the playable transcode for video; the poster covers undecodable codecs.
-          url: mediaUrl(a.previewPath ?? a.filePath),
+          // Images use their downscaled thumbnail; video prefers the playable transcode
+          // (the poster covers undecodable codecs).
+          url: mediaUrl(
+            a.kind === 'image' ? (a.thumbPath ?? a.filePath) : (a.previewPath ?? a.filePath),
+          ),
           // Save the original file, not the transcoded preview.
           saveSrc: mediaUrl(a.filePath),
           kind: a.kind,

@@ -36,6 +36,19 @@ export async function generatePoster(srcAbs: string, outAbs: string): Promise<bo
 }
 
 /**
+ * Write a downscaled JPEG thumbnail of an image so nodes/grid cells don't decode the
+ * full-resolution original. Caps width at 640px (never upscales) and keeps aspect.
+ * Transparency is dropped (JPEG has no alpha). Returns true on success.
+ */
+export async function generateImageThumb(srcAbs: string, outAbs: string): Promise<boolean> {
+  const { code } = await run(
+    ['-y', '-i', srcAbs, '-frames:v', '1', '-vf', "scale='min(640,iw)':-2", outAbs],
+    60_000,
+  )
+  return code === 0 && existsSync(outAbs)
+}
+
+/**
  * Render a horizontal filmstrip PNG: `frames` evenly-spaced thumbnails tiled in one row,
  * for the director timeline's video clips. Returns true on success.
  */

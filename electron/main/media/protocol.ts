@@ -41,6 +41,12 @@ function contentType(filePath: string): string {
   return MIME_BY_EXT[extname(filePath).toLowerCase()] ?? 'application/octet-stream'
 }
 
+// Every media file is content-addressed by id (assets/<id>.ext, takes/<id>, thumbs/<id>.jpg)
+// and never mutated in place, so the renderer can cache it forever. Without this Chromium
+// re-fetches and re-decodes the full file each time an <img> remounts — which, with React
+// Flow's onlyRenderVisibleElements, happens on every pan/zoom.
+const IMMUTABLE_CACHE = 'public, max-age=31536000, immutable'
+
 /** A web Response streaming `start..end` of a file (createReadStream end is inclusive). */
 function fileResponse(
   filePath: string,
@@ -109,6 +115,7 @@ export function registerMediaProtocol(): void {
         'Accept-Ranges': 'bytes',
         'Content-Length': String(end - start + 1),
         'Access-Control-Allow-Origin': '*',
+        'Cache-Control': IMMUTABLE_CACHE,
       })
     }
 
@@ -117,6 +124,7 @@ export function registerMediaProtocol(): void {
       'Accept-Ranges': 'bytes',
       'Content-Length': String(size),
       'Access-Control-Allow-Origin': '*',
+      'Cache-Control': IMMUTABLE_CACHE,
     })
   })
 }
