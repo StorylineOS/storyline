@@ -173,6 +173,9 @@ const api: InlineStudioApi = {
     check: () => ipcRenderer.invoke(IpcChannels.updates.check),
     quitAndInstall: () => ipcRenderer.invoke(IpcChannels.updates.quitAndInstall),
   },
+  app: {
+    version: () => ipcRenderer.invoke(IpcChannels.app.version),
+  },
   events: {
     onLibraryChanged: (callback: () => void) => {
       const listener = (): void => callback()

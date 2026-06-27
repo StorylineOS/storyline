@@ -13,6 +13,7 @@ import { registerClipboardHandlers } from './clipboard'
 import { registerMediaHandlers } from './media'
 import { registerShellHandlers } from './shell'
 import { registerUpdateHandlers } from './updates'
+import { registerAppHandlers } from './app'
 
 export function registerIpcHandlers(): void {
   registerProjectHandlers()
@@ -29,4 +30,5 @@ export function registerIpcHandlers(): void {
   registerMediaHandlers()
   registerShellHandlers()
   registerUpdateHandlers()
+  registerAppHandlers()
 }

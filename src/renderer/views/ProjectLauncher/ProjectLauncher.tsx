@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Logo } from '../../components/Logo'
 import { useProjectStore } from '../../store/projectStore'
+import { useUpdateStore } from '../../store/updateStore'
 
 export function ProjectLauncher(): React.JSX.Element {
   const {
@@ -15,6 +16,20 @@ export function ProjectLauncher(): React.JSX.Element {
     exportProject,
   } = useProjectStore()
   const [name, setName] = useState('')
+
+  const currentVersion = useUpdateStore((s) => s.currentVersion)
+  const updateStatus = useUpdateStore((s) => s.status)
+  const updateVersion = useUpdateStore((s) => s.version)
+  const loadCurrentVersion = useUpdateStore((s) => s.loadCurrentVersion)
+  const openReleases = useUpdateStore((s) => s.openReleases)
+  const updateAvailable = updateStatus !== 'idle'
+
+  // Show the running version, and re-check for a newer GitHub release while the user
+  // is on the launcher (the auto-updater also checks at startup; this keeps it fresh).
+  useEffect(() => {
+    void loadCurrentVersion()
+    void window.inlineStudio.updates.check()
+  }, [loadCurrentVersion])
 
   const canCreate = name.trim().length > 0 && !loading
   const exporting = exportingPath !== null
@@ -105,17 +120,31 @@ export function ProjectLauncher(): React.JSX.Element {
         </section>
       </div>
 
-      <p className="absolute bottom-6 left-0 right-0 text-center text-xs text-zinc-500">
-        Have a question?{' '}
-        <button
-          onClick={() =>
-            void window.inlineStudio.shell.openExternal('https://discord.gg/cSUS88VdY9')
-          }
-          className="text-accent underline-offset-2 hover:underline"
-        >
-          Connect the team on Discord
-        </button>
-      </p>
+      <div className="absolute bottom-6 left-0 right-0 flex flex-col items-center gap-1 text-center text-xs text-zinc-500">
+        <p>
+          Have a question?{' '}
+          <button
+            onClick={() =>
+              void window.inlineStudio.shell.openExternal('https://discord.gg/cSUS88VdY9')
+            }
+            className="text-accent underline-offset-2 hover:underline"
+          >
+            Connect the team on Discord
+          </button>
+        </p>
+        <p className="flex items-center gap-1.5">
+          {currentVersion && <span>Inline Studio v{currentVersion}</span>}
+          {updateAvailable && (
+            <button
+              onClick={() => void openReleases()}
+              title="A newer version is available on GitHub"
+              className="text-accent underline-offset-2 hover:underline"
+            >
+              · Update available{updateVersion ? ` (v${updateVersion})` : ''} →
+            </button>
+          )}
+        </p>
+      </div>
     </div>
   )
 }

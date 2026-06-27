@@ -152,6 +152,10 @@ export const IpcChannels = {
     /** Quit and install a downloaded update (Windows/Linux). */
     quitAndInstall: 'updates:quitAndInstall',
   },
+  app: {
+    /** The running app version (from package.json). */
+    version: 'app:version',
+  },
   events: {
     /** Main → renderer: the asset library changed (e.g. a video poster/transcode is ready). */
     libraryChanged: 'events:libraryChanged',
@@ -392,6 +396,10 @@ export interface InlineStudioApi {
     check(): Promise<Result<void>>
     /** Quit and install a downloaded update (Windows/Linux). */
     quitAndInstall(): Promise<Result<void>>
+  }
+  app: {
+    /** The running app version (from package.json). */
+    version(): Promise<Result<string>>
   }
   /** Resolve the absolute path of a File dropped from the OS (Electron webUtils). Sync. */
   getPathForFile(file: File): string

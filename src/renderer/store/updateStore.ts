@@ -9,6 +9,8 @@ type UpdateStatus = 'idle' | 'available' | 'downloading' | 'ready'
 interface UpdateState {
   status: UpdateStatus
   version: string | null
+  /** The running app version (from package.json), for display. */
+  currentVersion: string | null
   /** 0–100 while downloading. */
   percent: number
   /** macOS: detect-only, so the banner links out instead of self-installing. */
@@ -16,6 +18,8 @@ interface UpdateState {
   error: string | null
   /** Wire the main→renderer events; returns an unsubscribe fn. Call once on mount. */
   subscribeToEvents: () => () => void
+  /** Fetch the running app version into `currentVersion`. */
+  loadCurrentVersion: () => Promise<void>
   /** Quit and install the downloaded update (Windows/Linux). */
   install: () => Promise<void>
   /** Open the GitHub releases page (macOS notify-only path). */
@@ -25,9 +29,19 @@ interface UpdateState {
 export const useUpdateStore = create<UpdateState>((set) => ({
   status: 'idle',
   version: null,
+  currentVersion: null,
   percent: 0,
   notifyOnly: false,
   error: null,
+
+  loadCurrentVersion: async () => {
+    try {
+      const res = await window.inlineStudio.app.version()
+      if (res.ok) set({ currentVersion: res.value })
+    } catch {
+      // best-effort — the footer just omits the version if this fails
+    }
+  },
 
   subscribeToEvents: () => {
     const { events } = window.inlineStudio
