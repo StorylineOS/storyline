@@ -1,6 +1,6 @@
 # Inline Studio
 
-**An experimentation layer for visual artists. Build, iterate, and share generative pipelines on your own [ComfyUI](https://github.com/comfyanonymous/ComfyUI).**
+**An experimentation layer for visual artists/filmmakers. Build, iterate, and share generative pipelines on your own [ComfyUI](https://github.com/comfyanonymous/ComfyUI).**
 
 [![Join our Discord](https://img.shields.io/badge/Discord-Join%20the%20community-5865F2?logo=discord&logoColor=white&style=for-the-badge)](https://discord.gg/cSUS88VdY9)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
