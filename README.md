@@ -1,4 +1,4 @@
-# Inline Studio — AI filmmaking on a node canvas, powered by your own ComfyUI
+# Inline Studio - AI filmmaking on a node canvas, powered by your own ComfyUI
 
 **Inline Studio is a free, open-source desktop app for AI filmmakers: build, iterate, and assemble AI films on a free-form node canvas while your own ComfyUI does the rendering.**
 
@@ -12,20 +12,20 @@
 
 ## What is Inline Studio?
 
-Inline Studio is a free, open-source desktop app for **AI filmmaking on a node canvas, powered by your own [ComfyUI](https://github.com/comfyanonymous/ComfyUI)**. It gives AI filmmakers a free-form canvas to build generative pipelines — text to video, image, and audio — where every render is kept as a versioned, non-destructive take, and finished frames assemble into a finished cut inside the app. You bring your own ComfyUI (local GPU or a cloud GPU via RunPod); Inline Studio does everything around the render: exploring options, keeping what works, and shaping a repeatable process you can iterate on and share.
+Inline Studio is a free, open-source desktop app for **AI filmmaking on a node canvas, powered by your own [ComfyUI](https://github.com/comfyanonymous/ComfyUI)**. It gives AI filmmakers a free-form canvas to build generative pipelines - text to video, image, and audio - where every render is kept as a versioned, non-destructive take, and finished frames assemble into a finished cut inside the app. You bring your own ComfyUI (local GPU or a cloud GPU via RunPod); Inline Studio does everything around the render: exploring options, keeping what works, and shaping a repeatable process you can iterate on and share.
 
 **Who it's for:** AI filmmakers, motion artists, and generative creators who want to make AI short films and longer cuts with ComfyUI without losing every good version along the way.
 
 ## Features
 
-- **Free-form node canvas** — lay out your whole AI film like a mood board that can actually generate. Marquee-select, copy/paste, undo/redo, layers, and text notes all work the way your hands expect.
-- **Versioned, non-destructive takes** — every render is kept. Generating again adds a new take; nothing is overwritten. Star the keeper and it flows downstream.
-- **Chain frames into a generative pipeline** — wire one frame's output into the next frame's input. Refine a shot, feed it forward, regenerate the source, and everything downstream follows.
-- **Video Director node** — a timeline-in-a-node that assembles your rendered frames into a single cut, with layered audio (the videos' own audio plus your own music/VO), per-input and per-layer volume, an in-node preview to scrub, and high-res export.
-- **Trim Video/Audio node** — drop in a clip, drag the in/out handles over its filmstrip/waveform, and pass just the trimmed segment downstream.
-- **Built-in Claude assistant** — an AI assistant that works alongside you on the canvas, using your own Anthropic API key (stored encrypted on your machine, only ever sent to Anthropic).
-- **Bring your own ComfyUI** — connect any ComfyUI instance, local or cloud. Your media, your models, your machine.
-- **Free & open source (MIT)** and **cross-platform** — macOS (Apple Silicon & Intel), Windows, and Linux.
+- **Free-form node canvas** - lay out your whole AI film like a mood board that can actually generate. Marquee-select, copy/paste, undo/redo, layers, and text notes all work the way your hands expect.
+- **Versioned, non-destructive takes** - every render is kept. Generating again adds a new take; nothing is overwritten. Star the keeper and it flows downstream.
+- **Chain frames into a generative pipeline** - wire one frame's output into the next frame's input. Refine a shot, feed it forward, regenerate the source, and everything downstream follows.
+- **Video Director node** - a timeline-in-a-node that assembles your rendered frames into a single cut, with layered audio (the videos' own audio plus your own music/VO), per-input and per-layer volume, an in-node preview to scrub, and high-res export.
+- **Trim Video/Audio node** - drop in a clip, drag the in/out handles over its filmstrip/waveform, and pass just the trimmed segment downstream.
+- **Built-in Claude assistant** - an AI assistant that works alongside you on the canvas, using your own Anthropic API key (stored encrypted on your machine, only ever sent to Anthropic).
+- **Bring your own ComfyUI** - connect any ComfyUI instance, local or cloud. Your media, your models, your machine.
+- **Free & open source (MIT)** and **cross-platform** - macOS (Apple Silicon & Intel), Windows, and Linux.
 
 ![Inline Studio dashboard with recent AI film projects](https://raw.githubusercontent.com/inlineresearch/Inline-Studio/main/screenshots/screenshot-dashboard.png)
 
@@ -37,16 +37,16 @@ Inline Studio is a free, open-source desktop app for **AI filmmaking on a node c
 
 ## How it works
 
-ComfyUI is the most capable generative engine going — image, video, audio, LLM, every new model lands there first. But generating is the easy part. The work that makes an AI film is what comes after: exploring options, keeping what's good, and shaping a repeatable process out of it. Inline Studio is the layer where that happens, organised around one model:
+ComfyUI is the most capable generative engine going - image, video, audio, LLM, every new model lands there first. But generating is the easy part. The work that makes an AI film is what comes after: exploring options, keeping what's good, and shaping a repeatable process out of it. Inline Studio is the layer where that happens, organised around one model:
 
 ```
 Project  →  Sequence  →  Frame  →  Take[]
 ```
 
-- **Project** — a single portable `.inlinestudio` folder you can move, back up, or hand to a collaborator.
-- **Sequence** — an ordered group of frames; a scene of your film.
-- **Frame** — the atomic unit. **A frame is not a file — it's a slot with a history of takes.** Its inputs are library assets or another frame's chosen output (the refine/flow link).
-- **Take** — one immutable ComfyUI render of a frame. The frame points at the take you starred as hero, and that hero flows downstream to everything wired after it.
+- **Project** - a single portable `.inlinestudio` folder you can move, back up, or hand to a collaborator.
+- **Sequence** - an ordered group of frames; a scene of your film.
+- **Frame** - the atomic unit. **A frame is not a file - it's a slot with a history of takes.** Its inputs are library assets or another frame's chosen output (the refine/flow link).
+- **Take** - one immutable ComfyUI render of a frame. The frame points at the take you starred as hero, and that hero flows downstream to everything wired after it.
 
 That take history is the core value ComfyUI lacks: keep every version that worked, page through them, and pick the keeper without ever overwriting your earlier renders.
 
@@ -58,22 +58,22 @@ From the home screen, **Export** zips a project into one archive. Import it on t
 
 ## Bring your own ComfyUI
 
-Inline Studio doesn't bundle or manage ComfyUI — **you bring your own**, run it wherever you like, and point Inline Studio at it. This keeps you in full control of your nodes, models, and the render.
+Inline Studio doesn't bundle or manage ComfyUI - **you bring your own**, run it wherever you like, and point Inline Studio at it. This keeps you in full control of your nodes, models, and the render.
 
 - **Running locally with a GPU?** Start ComfyUI with `--enable-cors-header` and paste its address into the Generate tab.
-- **No GPU?** Spin up ComfyUI on a cloud GPU — the app walks you through deploying it on [RunPod](https://runpod.io) — and paste the public URL. Any reachable ComfyUI works.
+- **No GPU?** Spin up ComfyUI on a cloud GPU - the app walks you through deploying it on [RunPod](https://runpod.io) - and paste the public URL. Any reachable ComfyUI works.
 
 Your media, your models, your machine. ComfyUI does the rendering. Inline Studio gives the work a shape you can iterate and share.
 
 ## A built-in assistant (Claude)
 
-Inline Studio ships with an AI assistant powered by **Claude** that works alongside you on the canvas. Connect your own [Anthropic API key](https://console.anthropic.com/settings/keys) — it's stored encrypted on your machine and never sent anywhere but Anthropic — and open the assistant from the Claude icon in the header.
+Inline Studio ships with an AI assistant powered by **Claude** that works alongside you on the canvas. Connect your own [Anthropic API key](https://console.anthropic.com/settings/keys) - it's stored encrypted on your machine and never sent anywhere but Anthropic - and open the assistant from the Claude icon in the header.
 
 ## Install
 
 Grab a prebuilt installer from the [latest release](../../releases/latest) and open it:
 
-- **macOS:** download the `.dmg` for your chip — `arm64` for Apple Silicon (M1/M2/M3…), `x64` for Intel Macs — open it, and drag Inline Studio into Applications.
+- **macOS:** download the `.dmg` for your chip - `arm64` for Apple Silicon (M1/M2/M3…), `x64` for Intel Macs - open it, and drag Inline Studio into Applications.
 - **Windows:** download the `-setup.exe` and run it.
 - **Linux:** download the `.AppImage`, make it executable (`chmod +x Inline Studio*.AppImage`), and run it.
 
@@ -116,12 +116,12 @@ npm run package:linux    # AppImage in dist/
 
 A few things to know:
 
-- **Build each OS — and each Mac arch — on matching hardware.** Inline Studio ships a native module (SQLite), which has to be compiled for the target machine, so build the Mac app on a Mac and the Windows app on Windows. The same applies to Mac CPU arch: an Intel (`x64`) dmg has to be built on an Intel Mac and an Apple Silicon (`arm64`) dmg on an Apple Silicon Mac — cross-building bundles the wrong native binary. CI handles this for you (see below).
+- **Build each OS - and each Mac arch - on matching hardware.** Inline Studio ships a native module (SQLite), which has to be compiled for the target machine, so build the Mac app on a Mac and the Windows app on Windows. The same applies to Mac CPU arch: an Intel (`x64`) dmg has to be built on an Intel Mac and an Apple Silicon (`arm64`) dmg on an Apple Silicon Mac - cross-building bundles the wrong native binary. CI handles this for you (see below).
 - **After packaging, `npm run dev` may complain about the native module.** Packaging rebuilds SQLite for the target architecture; run `npm run rebuild` to restore it for local development.
 - **The builds are unsigned.** On first launch macOS and Windows will warn about an unidentified developer. On a Mac, right-click the app and choose Open (or remove the quarantine flag with `xattr -dr com.apple.quarantine /Applications/Inline Studio.app`). For real distribution you'll want code signing and notarization.
 - **App icon.** The icon lives in `build/` (`icon.png` is the source). Replace it there and re-package to rebrand.
 
-Releases are automated: bump the version in `package.json` and run the **Build & Release** workflow from the Actions tab. It builds installers for macOS (Apple Silicon **and** Intel — each on its own runner), Windows, and Linux on GitHub Actions and uploads them to a draft GitHub Release.
+Releases are automated: bump the version in `package.json` and run the **Build & Release** workflow from the Actions tab. It builds installers for macOS (Apple Silicon **and** Intel - each on its own runner), Windows, and Linux on GitHub Actions and uploads them to a draft GitHub Release.
 
 ## FAQ
 
@@ -131,15 +131,15 @@ Yes. Inline Studio is free and open source under the [MIT license](LICENSE). The
 
 ### Do I need a GPU?
 
-Not on the machine running Inline Studio. ComfyUI does the rendering, so you only need a GPU wherever ComfyUI runs — that can be a local GPU on the same machine, or a cloud GPU you connect to. Inline Studio's canvas and planning work without any GPU at all.
+Not on the machine running Inline Studio. ComfyUI does the rendering, so you only need a GPU wherever ComfyUI runs - that can be a local GPU on the same machine, or a cloud GPU you connect to. Inline Studio's canvas and planning work without any GPU at all.
 
 ### Does Inline Studio include ComfyUI, and how do I connect it?
 
-No — you bring your own ComfyUI. Inline Studio doesn't bundle or manage it. Start ComfyUI with CORS enabled (`python main.py --enable-cors-header`) and paste its address into the Generate tab, or point Inline Studio at a cloud ComfyUI instance by pasting its public URL. Any reachable ComfyUI works.
+No - you bring your own ComfyUI. Inline Studio doesn't bundle or manage it. Start ComfyUI with CORS enabled (`python main.py --enable-cors-header`) and paste its address into the Generate tab, or point Inline Studio at a cloud ComfyUI instance by pasting its public URL. Any reachable ComfyUI works.
 
 ### How do I access the nodes and models available in ComfyUI?
 
-Through your own ComfyUI. Connect an existing setup or launch one on a cloud GPU via [RunPod](https://runpod.io) — the app walks you through it — and you keep full control of ComfyUI: its nodes, custom nodes, and models are all yours. The Generate tab embeds the full ComfyUI node graph, so everything you'd do in ComfyUI directly is available inside Inline Studio.
+Through your own ComfyUI. Connect an existing setup or launch one on a cloud GPU via [RunPod](https://runpod.io) - the app walks you through it - and you keep full control of ComfyUI: its nodes, custom nodes, and models are all yours. The Generate tab embeds the full ComfyUI node graph, so everything you'd do in ComfyUI directly is available inside Inline Studio.
 
 ## Contributing
 
