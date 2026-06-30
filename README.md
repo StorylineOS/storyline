@@ -4,8 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 [![Platforms: macOS, Windows, Linux](https://img.shields.io/badge/Platforms-macOS%20%7C%20Windows%20%7C%20Linux-blue?style=for-the-badge)](../../releases/latest)
-[![GitHub stars](https://img.shields.io/github/stars/inlineresearch/Inline-Studio?style=for-the-badge&logo=github)](https://github.com/inlineresearch/Inline-Studio/stargazers)
-[![Latest release](https://img.shields.io/github/v/release/inlineresearch/Inline-Studio?style=for-the-badge)](../../releases/latest)
+[![Latest release](https://img.shields.io/badge/Release-v1.0.36-blue?style=for-the-badge)](../../releases/latest)
 [![Join our Discord](https://img.shields.io/badge/Discord-Join%20the%20community-5865F2?logo=discord&logoColor=white&style=for-the-badge)](https://discord.gg/cSUS88VdY9)
 
 ![Inline Studio node canvas showing a generative AI film pipeline with frames, takes, and connectors](https://raw.githubusercontent.com/inlineresearch/Inline-Studio/main/screenshots/screenshot-dashboard-2.png)
@@ -33,7 +32,9 @@ Inline Studio is a free, open-source desktop app for **AI filmmaking on a node c
 | :---------------------------------------------------------------------------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------: |
 | ![Trim Video/Audio node with in/out handles over a clip's waveform](https://raw.githubusercontent.com/inlineresearch/Inline-Studio/main/screenshots/1.0.34.1.png) | ![Video Director node assembling rendered frames into one cut with layered audio](https://raw.githubusercontent.com/inlineresearch/Inline-Studio/main/screenshots/1.0.34.2.png) |
 
-[**New here? Follow our Animated Short Film with LTX 2.3 and GPT Image Generation tutorial →**](https://inlinestudio.art/projects/circuit-race)
+[**New here? Start with the Getting Started guide →**](https://inlinestudio.art/getting-started)
+
+[**Then follow our Animated Short Film with LTX 2.3 and GPT Image Generation tutorial →**](https://inlinestudio.art/projects/circuit-race)
 
 ## How it works
 
@@ -83,6 +84,8 @@ The builds are currently unsigned, so on first launch your system may warn about
 - **Windows:** on the SmartScreen prompt, click "More info" then "Run anyway".
 
 To actually generate, you'll also need a ComfyUI instance to connect to (see [Bring your own ComfyUI](#bring-your-own-comfyui)). The canvas and planning work without it.
+
+New to Inline Studio? The [Getting Started guide](https://inlinestudio.art/getting-started) walks you through your first render.
 
 ## Getting started from source
 

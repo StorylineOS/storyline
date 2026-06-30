@@ -6,6 +6,7 @@ import { useFrameStore } from '../../store/frameStore'
 import { useAssetStore } from '../../store/assetStore'
 import { useSettingsStore } from '../../store/settingsStore'
 import { getAssetDragIds } from '../../lib/dnd'
+import { requireComfyConnected } from '../../lib/requireComfyConnected'
 import { Waveform } from '../../components/Waveform'
 
 const INPUT_DND = 'application/x-inlinestudio-frame-input'
@@ -79,6 +80,9 @@ export function FrameInspector(): React.JSX.Element | null {
   }
 
   const onLinkOpen = async (): Promise<void> => {
+    // ComfyUI must be reachable to link/open a workflow — otherwise send the user to the
+    // Generate tab to connect first.
+    if (!(await requireComfyConnected(() => setMode('generate')))) return
     const result = await linkFrame(frame.id)
     setLinkedWorkflow(result?.comfyWorkflowName ?? frame.comfyWorkflowName)
     setActiveFrame(frame.id)

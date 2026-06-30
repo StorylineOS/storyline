@@ -7,6 +7,7 @@ import { useMoodboardStore } from '../../../store/moodboardStore'
 import { useUiStore } from '../../../store/uiStore'
 import { getAssetDragIds } from '../../../lib/dnd'
 import { useMediaContextMenu } from '../../../lib/mediaContextMenu'
+import { requireComfyConnected } from '../../../lib/requireComfyConnected'
 import { VideoPreview } from '../../../components/VideoPreview'
 import { Waveform } from '../../../components/Waveform'
 import { NodeFrame } from './NodeFrame'
@@ -179,6 +180,9 @@ export function FrameNode({ id, data, selected }: NodeProps): React.JSX.Element 
 
   const onLink = async (): Promise<void> => {
     if (!frame) return
+    // ComfyUI must be reachable to link/open a workflow — otherwise send the user to the
+    // Generate tab to connect first.
+    if (!(await requireComfyConnected(() => setMode('generate')))) return
     const result = await linkFrame(frame.id)
     setLinkedWorkflow(result?.comfyWorkflowName ?? frame.comfyWorkflowName)
     setActiveFrame(frame.id)
