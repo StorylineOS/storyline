@@ -3,6 +3,7 @@
  * time; opening another closes the previous connection.
  */
 import { join } from 'node:path'
+import { existsSync, rmSync } from 'node:fs'
 import Database from 'better-sqlite3'
 import type BetterSqlite3 from 'better-sqlite3'
 import { applySchema } from './schema'
@@ -14,6 +15,18 @@ let openPath: string | null = null
 export function openProjectDb(projectFolder: string): BetterSqlite3.Database {
   closeProjectDb()
   const dbPath = join(projectFolder, 'project.db')
+  // A `-shm` shipped inside an imported/copied project is foreign shared-memory that
+  // SQLite can fail to open on Windows ("UNKNOWN: unknown error, open …-shm"). It's
+  // always rebuildable, so drop a stale one and let SQLite regenerate it — any `-wal`
+  // data is still recovered on open. (No connection holds it: we just closed above.)
+  const shmPath = `${dbPath}-shm`
+  if (existsSync(shmPath)) {
+    try {
+      rmSync(shmPath)
+    } catch {
+      // best-effort; if it's genuinely locked, the open below will surface a clear error
+    }
+  }
   const db = new Database(dbPath)
   applySchema(db)
   connection = db
