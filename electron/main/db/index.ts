@@ -31,6 +31,26 @@ export function getOpenProjectFolder(): string | null {
   return openPath
 }
 
+/**
+ * Flush the write-ahead log fully into `project.db` so the file is self-contained — used
+ * before export, so the zip doesn't have to carry the `-wal`/`-shm` sidecars (and a
+ * recipient can't end up with a stale project if those get dropped in transit). TRUNCATE
+ * also zeroes the `-wal`. Uses the open connection when this is the current project (it
+ * owns the WAL), else a short-lived one.
+ */
+export function checkpointProjectDb(projectFolder: string): void {
+  if (connection && openPath === projectFolder) {
+    connection.pragma('wal_checkpoint(TRUNCATE)')
+    return
+  }
+  const db = new Database(join(projectFolder, 'project.db'))
+  try {
+    db.pragma('wal_checkpoint(TRUNCATE)')
+  } finally {
+    db.close()
+  }
+}
+
 export function closeProjectDb(): void {
   if (connection) {
     connection.close()

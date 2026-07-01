@@ -32,6 +32,7 @@ const api: InlineStudioApi = {
     create: (input: CreateProjectInput) => ipcRenderer.invoke(IpcChannels.project.create, input),
     open: (path: string) => ipcRenderer.invoke(IpcChannels.project.open, path),
     openDialog: () => ipcRenderer.invoke(IpcChannels.project.openDialog),
+    openZip: () => ipcRenderer.invoke(IpcChannels.project.openZip),
     listRecent: () => ipcRenderer.invoke(IpcChannels.project.listRecent),
     current: () => ipcRenderer.invoke(IpcChannels.project.current),
     mediaDirs: () => ipcRenderer.invoke(IpcChannels.project.mediaDirs),

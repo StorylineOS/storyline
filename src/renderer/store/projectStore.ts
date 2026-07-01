@@ -19,6 +19,7 @@ interface ProjectState {
   loadRecents: () => Promise<void>
   createProject: (name: string) => Promise<void>
   openFromDialog: () => Promise<void>
+  openFromZip: () => Promise<void>
   openByPath: (path: string) => Promise<void>
   /** Export a project folder (by path) to a portable .zip via a save dialog. */
   exportProject: (path: string) => Promise<void>
@@ -57,6 +58,19 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     if (res.value === null) return set({ loading: false })
     set({ current: res.value, loading: false })
     void get().loadRecents()
+  },
+
+  openFromZip: async () => {
+    set({ loading: true, error: null })
+    try {
+      const res = await window.inlineStudio.project.openZip()
+      if (!res.ok) return set({ loading: false, error: res.error })
+      if (res.value === null) return set({ loading: false })
+      set({ current: res.value, loading: false })
+      void get().loadRecents()
+    } catch (e) {
+      set({ loading: false, error: ipcErrorMessage(e) })
+    }
   },
 
   openByPath: async (path: string) => {

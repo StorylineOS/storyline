@@ -9,6 +9,11 @@ import { join, basename } from 'node:path'
 import { createWriteStream, existsSync } from 'node:fs'
 import archiver from 'archiver'
 import type { ProjectExportResult } from '@shared/types'
+import { checkpointProjectDb } from '../db'
+
+/** SQLite sidecars that must NOT be shipped: -wal is folded into project.db by the
+ *  checkpoint below, and -shm is shared memory that SQLite rebuilds on open. */
+const DB_SIDECARS = ['project.db-wal', 'project.db-shm']
 
 export async function exportProject(projectPath: string): Promise<ProjectExportResult | null> {
   if (!existsSync(join(projectPath, 'project.db'))) {
@@ -22,6 +27,10 @@ export async function exportProject(projectPath: string): Promise<ProjectExportR
     filters: [{ name: 'Zip archive', extensions: ['zip'] }],
   })
   if (result.canceled || !result.filePath) return null
+
+  // Fold the WAL into project.db so the exported file is complete on its own — otherwise
+  // recent data lives in the sidecars, which we then leave out of the zip.
+  checkpointProjectDb(projectPath)
 
   await zipFolder(projectPath, folderName, result.filePath)
   return { path: result.filePath }
@@ -42,7 +51,11 @@ function zipFolder(srcDir: string, topName: string, destZip: string): Promise<vo
     archive.on('error', reject)
 
     archive.pipe(output)
-    archive.directory(srcDir, topName)
+    // Include everything except the DB sidecars (folded into project.db above).
+    archive.directory(srcDir, topName, (entry) => {
+      const name = entry.name ?? ''
+      return DB_SIDECARS.some((s) => name === s || name.endsWith(`/${s}`)) ? false : entry
+    })
     void archive.finalize()
   })
 }

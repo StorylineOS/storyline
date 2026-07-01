@@ -45,6 +45,7 @@ export const IpcChannels = {
     create: 'project:create',
     open: 'project:open',
     openDialog: 'project:openDialog',
+    openZip: 'project:openZip',
     listRecent: 'project:listRecent',
     current: 'project:current',
     mediaDirs: 'project:mediaDirs',
@@ -207,6 +208,8 @@ export interface InlineStudioApi {
     open(path: string): Promise<Result<Project>>
     /** Show a native folder picker and open the chosen project. */
     openDialog(): Promise<Result<Project | null>>
+    /** Show a .zip picker, extract the exported project beside the zip, and open it. */
+    openZip(): Promise<Result<Project | null>>
     listRecent(): Promise<Result<RecentProject[]>>
     current(): Promise<Result<Project | null>>
     /** Absolute input/output dirs of the open project, for sharing with ComfyUI. */

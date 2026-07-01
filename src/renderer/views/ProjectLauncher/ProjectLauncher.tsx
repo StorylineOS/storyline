@@ -14,6 +14,7 @@ export function ProjectLauncher(): React.JSX.Element {
     exportingPath,
     createProject,
     openFromDialog,
+    openFromZip,
     openByPath,
     exportProject,
   } = useProjectStore()
@@ -80,6 +81,13 @@ export function ProjectLauncher(): React.JSX.Element {
                     className="underline-offset-2 hover:text-zinc-200 hover:underline"
                   >
                     …or open an existing project
+                  </button>
+                  <button
+                    onClick={() => void openFromZip()}
+                    disabled={loading}
+                    className="underline-offset-2 hover:text-zinc-200 hover:underline"
+                  >
+                    import a .zip
                   </button>
                 </div>
               </section>

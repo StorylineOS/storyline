@@ -8,6 +8,7 @@ import { IpcChannels, type CreateProjectInput } from '@shared/ipc'
 import type { Project, RecentProject, ProjectMediaDirs, ProjectExportResult } from '@shared/types'
 import { handle } from './handler'
 import { createProject, openProject, getCurrentProject, isProjectFolder } from '../project/store'
+import { extractProjectZip } from '../project/import'
 import { exportProject } from '../export/project'
 import { listRecents } from '../project/recents'
 import { getOpenProjectFolder } from '../db'
@@ -49,6 +50,21 @@ export function registerProjectHandlers(): void {
       throw new Error('That folder is not a Inline Studio project.')
     }
     return openProject(folder)
+  })
+
+  handle<[], Project | null>(IpcChannels.project.openZip, async () => {
+    const result = await dialog.showOpenDialog({
+      title: 'Open Inline Studio Project (.zip)',
+      properties: ['openFile'],
+      filters: [{ name: 'Inline Studio project', extensions: ['zip'] }],
+      buttonLabel: 'Open Project',
+    })
+    if (result.canceled || result.filePaths.length === 0) return null
+    const dest = await extractProjectZip(result.filePaths[0])
+    if (!isProjectFolder(dest)) {
+      throw new Error('That .zip does not contain an Inline Studio project.')
+    }
+    return openProject(dest)
   })
 
   handle<[], RecentProject[]>(IpcChannels.project.listRecent, () => listRecents())

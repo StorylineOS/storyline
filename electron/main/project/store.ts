@@ -6,7 +6,7 @@
  *     project.db   assets/   takes/   thumbs/
  */
 import { join } from 'node:path'
-import { mkdirSync, existsSync } from 'node:fs'
+import { mkdirSync, existsSync, readdirSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
 import type { Project } from '@shared/types'
 import { openProjectDb, getDb } from '../db'
@@ -81,14 +81,13 @@ export function createProject(input: { name: string; parentDir: string }): Proje
   return project
 }
 
-export function openProject(folder: string): Project {
-  // Accept legacy `.storyline` folders too, but trust a valid project.db over the
-  // extension — a hand-renamed or differently-named folder with a project.db still opens.
-  if (!isProjectExt(folder) && !existsSync(join(folder, 'project.db'))) {
-    throw new Error('Not an Inline Studio project folder.')
-  }
-  if (!existsSync(join(folder, 'project.db'))) {
-    throw new Error('That folder is not a valid Inline Studio project (no project.db).')
+export function openProject(selected: string): Project {
+  // Resolve the real project folder — it may be the picked one, or a level down after
+  // an unzip wrapped it (see resolveProjectFolder). A valid project.db is the real
+  // signal, so hand-renamed or legacy `.storyline` folders open too.
+  const folder = resolveProjectFolder(selected)
+  if (!folder) {
+    throw new Error('That folder is not an Inline Studio project (no project.db found).')
   }
   openProjectDb(folder)
   // Make sure media subdirs exist even for hand-copied projects.
@@ -107,16 +106,34 @@ export function openProject(folder: string): Project {
 }
 
 /**
- * Heuristic for the open dialog: is this dir an Inline Studio project? A valid
- * `project.db` is the real signal, so this also accepts legacy `.storyline` folders and
- * folders renamed away from the `.inlinestudio` extension.
+ * The actual project folder for a user-picked `folder`: the folder itself when it holds
+ * a `project.db`, else one level down. After unzipping an exported project, extractors
+ * (notably Windows Explorer) wrap the exported `Foo.inlinestudio/` inside another folder
+ * named after the zip — so the picked folder often *contains* the real project as a
+ * child rather than being it. Prefers a `*.inlinestudio`/`.storyline` child, then any
+ * child, that contains a `project.db`. Returns null if none is found.
+ */
+export function resolveProjectFolder(folder: string): string | null {
+  try {
+    if (existsSync(join(folder, 'project.db'))) return folder
+    const children = readdirSync(folder, { withFileTypes: true }).filter((e) => e.isDirectory())
+    const hasDb = (name: string): boolean => existsSync(join(folder, name, 'project.db'))
+    const preferred = children.find((e) => isProjectExt(e.name) && hasDb(e.name))
+    if (preferred) return join(folder, preferred.name)
+    const any = children.find((e) => hasDb(e.name))
+    return any ? join(folder, any.name) : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Heuristic for the open dialog: does this dir hold (or wrap) an Inline Studio project?
+ * A valid `project.db` is the real signal, so this also accepts legacy `.storyline`
+ * folders, folders renamed away from the `.inlinestudio` extension, and unzip-nested ones.
  */
 export function isProjectFolder(folder: string): boolean {
-  try {
-    return existsSync(join(folder, 'project.db'))
-  } catch {
-    return false
-  }
+  return resolveProjectFolder(folder) !== null
 }
 
 export function getCurrentProject(): Project | null {
