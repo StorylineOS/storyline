@@ -120,14 +120,27 @@ export function DirectorNode({ id, data, selected }: NodeProps): React.JSX.Eleme
     const h = String(c.data?.targetHandle ?? '')
     return h.startsWith(VIDEO_PREFIX) || h.startsWith(AUDIO_PREFIX)
   })
+  // Skip the rebuild on the INITIAL mount (e.g. an app restart). Rebuilding every
+  // director's proxy on load calls `reloadBoard()` — a full board reload — which races
+  // the canvas's node measurement and makes preview nodes collapse/duplicate. Only
+  // rebuild when the wired inputs or volumes actually change during the session; the
+  // proxy from the previous session is still valid until then.
+  const rebuildSig = `${connSig}|${l1}|${l2}|${hasInput ? 1 : 0}`
+  const lastRebuildSig = useRef<string | null>(null)
   useEffect(() => {
+    if (lastRebuildSig.current === null) {
+      lastRebuildSig.current = rebuildSig // baseline the mount state; don't rebuild
+      return
+    }
+    if (lastRebuildSig.current === rebuildSig) return
+    lastRebuildSig.current = rebuildSig
     if (!hasInput) return
     const h = setTimeout(async () => {
       const ok = await buildPreview(id)
       if (ok) await reloadBoard()
     }, REBUILD_DEBOUNCE_MS)
     return () => clearTimeout(h)
-  }, [id, connSig, l1, l2, hasInput, buildPreview, reloadBoard])
+  }, [id, rebuildSig, hasInput, buildPreview, reloadBoard])
 
   const rendering = progress !== null && progress !== undefined
 
