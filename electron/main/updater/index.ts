@@ -15,7 +15,14 @@ import electronUpdater, { type ProgressInfo, type UpdateInfo } from 'electron-up
 import { IpcChannels } from '@shared/ipc'
 
 // electron-updater is CJS; the autoUpdater singleton is on the default export.
-const { autoUpdater } = electronUpdater
+// IMPORTANT: accessing `electronUpdater.autoUpdater` lazily constructs the platform
+// updater (NsisUpdater on Windows), whose constructor immediately reads
+// `app.getVersion()`. Touching it at module load — before `app` is ready — crashes
+// with "Cannot read properties of undefined (reading 'getVersion')". So resolve it
+// only inside the functions below, which all run after `app.whenReady()`.
+function updater(): typeof electronUpdater.autoUpdater {
+  return electronUpdater.autoUpdater
+}
 
 const isMac = process.platform === 'darwin'
 /** Re-check this often while the app stays open. */
@@ -32,15 +39,16 @@ export function initAutoUpdater(): void {
     return
   }
 
+  const au = updater()
   // On macOS we can't self-install (unsigned), so never auto-download there.
-  autoUpdater.autoDownload = !isMac
-  autoUpdater.autoInstallOnAppQuit = !isMac
+  au.autoDownload = !isMac
+  au.autoInstallOnAppQuit = !isMac
 
-  autoUpdater.on('update-available', (info: UpdateInfo) => {
+  au.on('update-available', (info: UpdateInfo) => {
     broadcast(IpcChannels.events.updateAvailable, { version: info.version, notifyOnly: isMac })
   })
 
-  autoUpdater.on('download-progress', (p: ProgressInfo) => {
+  au.on('download-progress', (p: ProgressInfo) => {
     broadcast(IpcChannels.events.updateProgress, {
       percent: Math.round(p.percent),
       transferred: p.transferred,
@@ -48,12 +56,12 @@ export function initAutoUpdater(): void {
     })
   })
 
-  autoUpdater.on('update-downloaded', (info: UpdateInfo) => {
+  au.on('update-downloaded', (info: UpdateInfo) => {
     broadcast(IpcChannels.events.updateDownloaded, { version: info.version })
   })
 
   // A failed/interrupted update check must never crash the app.
-  autoUpdater.on('error', (err: Error) => {
+  au.on('error', (err: Error) => {
     console.error('[updater]', err.message)
   })
 
@@ -64,10 +72,10 @@ export function initAutoUpdater(): void {
 /** Check for a newer published release. Drives our own UI, so not `checkForUpdatesAndNotify`. */
 export async function checkForUpdates(): Promise<void> {
   if (!app.isPackaged) return
-  await autoUpdater.checkForUpdates()
+  await updater().checkForUpdates()
 }
 
 /** Quit and install a downloaded update (Windows/Linux). */
 export function quitAndInstall(): void {
-  autoUpdater.quitAndInstall()
+  updater().quitAndInstall()
 }
