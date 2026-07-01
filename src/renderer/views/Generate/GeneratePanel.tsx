@@ -158,11 +158,16 @@ function activeWorkflowBaseName(path: string): string {
 const WF_SAVED_MARKER = '[inlinestudio:wf-saved]'
 
 /**
- * Injected once into the ComfyUI page: monkeypatch the API's `storeUserData` so that
- * (1) saving a Inline Studio workflow always passes `overwrite: true` — ComfyUI otherwise
- * POSTs new workflows with overwrite=false and the server 409s because Inline Studio has
- * already pushed that file; and (2) after a save it logs a marker the host catches to
- * pull the JSON back into Inline Studio's durable copy. Idempotent.
+ * Injected once into the ComfyUI page. Two layers, both idempotent:
+ * (A) Patch `api.fetchApi` to force `overwrite=true` on POSTs to userdata *workflow*
+ *     files. ComfyUI otherwise POSTs a freshly-opened workflow with overwrite=false and
+ *     the server 409s because Inline Studio already pushed that file on link — the "save
+ *     fails until app restart" bug. Patching at the fetch layer catches the workflow
+ *     service even when it captured the original `storeUserData` before us (it still
+ *     resolves `this.fetchApi` at call time) and works whether the tab opened saved or
+ *     "Unsaved".
+ * (B) Patch `storeUserData` to also force overwrite for direct callers and to log a
+ *     marker the host catches to pull the saved JSON back into Inline Studio's copy.
  */
 function saveHookScript(): string {
   return `(() => {
@@ -176,6 +181,36 @@ function saveHookScript(): string {
     };
     const api = findApi();
     if (!api) return 'no-api';
+
+    // (A) Network-level guard: force overwrite=true on every POST to a userdata *workflow*
+    // file. This is the robust fix — ComfyUI's workflow service calls \`this.fetchApi\`
+    // dynamically, so it lands here even when the service captured the original
+    // \`storeUserData\` before our patch below, and regardless of whether the workflow
+    // opened as a saved tab or as an "Unsaved Workflow". Without it, a freshly-linked
+    // frame (whose file Inline Studio already pushed) 409s on the first Save until an app
+    // restart re-indexes ComfyUI's workflow store. The route is URL-encoded, so slashes
+    // in the name appear as %2F and 'workflows' is still a substring.
+    if (api.fetchApi && !window.__inlineStudioFetchHook) {
+      const origFetch = api.fetchApi.bind(api);
+      api.fetchApi = (route, options) => {
+        try {
+          const method = ((options && options.method) || 'GET').toUpperCase();
+          if (method === 'POST' && typeof route === 'string'
+              && route.indexOf('/userdata/') !== -1 && route.indexOf('workflows') !== -1) {
+            if (/[?&]overwrite=false/i.test(route)) {
+              route = route.replace(/([?&])overwrite=false/i, '$1overwrite=true');
+            } else if (!/[?&]overwrite=/i.test(route)) {
+              route += (route.indexOf('?') === -1 ? '?' : '&') + 'overwrite=true';
+            }
+          }
+        } catch (e) {}
+        return origFetch(route, options);
+      };
+      window.__inlineStudioFetchHook = true;
+    }
+
+    // (B) storeUserData patch: force overwrite for direct callers AND log a marker after a
+    // workflow save so the host can pull the JSON back into Inline Studio's durable copy.
     const orig = api.storeUserData.bind(api);
     api.storeUserData = async (file, data, options) => {
       let opts = options;
