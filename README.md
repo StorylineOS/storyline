@@ -1,11 +1,15 @@
-# Inline Studio - AI filmmaking on a node canvas, powered by your own ComfyUI
+<h1 align="center">Inline Studio</h1>
 
-**Inline Studio is a free, open-source desktop app for AI filmmakers: build, iterate, and assemble AI films on a free-form node canvas while your own ComfyUI does the rendering.**
+<h3 align="center">AI filmmaking on a node canvas, powered by your own ComfyUI</h3>
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
-[![Platforms: macOS, Windows, Linux](https://img.shields.io/badge/Platforms-macOS%20%7C%20Windows%20%7C%20Linux-blue?style=for-the-badge)](../../releases/latest)
-[![Latest release](https://img.shields.io/badge/Release-v1.0.36-blue?style=for-the-badge)](../../releases/latest)
-[![Join our Discord](https://img.shields.io/badge/Discord-Join%20the%20community-5865F2?logo=discord&logoColor=white&style=for-the-badge)](https://discord.gg/cSUS88VdY9)
+<p align="center">Inline Studio is a free, open-source desktop app for AI filmmakers: build, iterate, and assemble AI films on a free-form node canvas while your own ComfyUI does the rendering.</p>
+
+<p align="center">
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge"></a>
+  <a href="../../releases/latest"><img alt="Platforms: macOS, Windows, Linux" src="https://img.shields.io/badge/Platforms-macOS%20%7C%20Windows%20%7C%20Linux-blue?style=for-the-badge"></a>
+  <a href="../../releases/latest"><img alt="Latest release" src="https://img.shields.io/badge/Release-v1.0.36-blue?style=for-the-badge"></a>
+  <a href="https://discord.gg/cSUS88VdY9"><img alt="Join our Discord" src="https://img.shields.io/badge/Discord-Join%20the%20community-5865F2?logo=discord&logoColor=white&style=for-the-badge"></a>
+</p>
 
 ![Inline Studio node canvas showing a generative AI film pipeline with frames, takes, and connectors](https://raw.githubusercontent.com/inlineresearch/Inline-Studio/main/screenshots/screenshot-dashboard-2.png)
 
