@@ -375,6 +375,11 @@ export const useMoodboardStore = create<MoodboardState>((set, get) => ({
   },
 
   connect: async (fromItemId, toItemId, sourceHandle = null, targetHandle = null) => {
+    // [dupdiag] TEMP: who is creating connectors, and when? Remove once confirmed.
+    console.log(
+      `[dupdiag] store.connect from=${fromItemId} to=${toItemId} sh=${sourceHandle} th=${targetHandle}\n` +
+        (new Error().stack?.split('\n').slice(2, 7).join('\n') ?? ''),
+    )
     try {
       get().record()
       const res = await window.inlineStudio.moodboard.createConnector(

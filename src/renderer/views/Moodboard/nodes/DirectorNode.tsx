@@ -130,14 +130,23 @@ export function DirectorNode({ id, data, selected }: NodeProps): React.JSX.Eleme
   useEffect(() => {
     if (lastRebuildSig.current === null) {
       lastRebuildSig.current = rebuildSig // baseline the mount state; don't rebuild
+      // [dupdiag] TEMP: baseline set on mount. Remove once diagnosed.
+      console.log(`[dupdiag] DirectorNode baseline id=${id} sig="${rebuildSig}"`)
       return
     }
     if (lastRebuildSig.current === rebuildSig) return
+    // [dupdiag] TEMP: signature changed after mount → will rebuild + reloadBoard (the
+    // suspected race trigger). If this fires right after restart, it's the culprit.
+    console.log(
+      `[dupdiag] DirectorNode rebuild FIRE id=${id} old="${lastRebuildSig.current}" new="${rebuildSig}" hasInput=${hasInput}`,
+    )
     lastRebuildSig.current = rebuildSig
     if (!hasInput) return
     const h = setTimeout(async () => {
+      console.log(`[dupdiag] DirectorNode buildPreview+reloadBoard START id=${id}`)
       const ok = await buildPreview(id)
       if (ok) await reloadBoard()
+      console.log(`[dupdiag] DirectorNode buildPreview+reloadBoard DONE id=${id} ok=${ok}`)
     }, REBUILD_DEBOUNCE_MS)
     return () => clearTimeout(h)
   }, [id, rebuildSig, hasInput, buildPreview, reloadBoard])

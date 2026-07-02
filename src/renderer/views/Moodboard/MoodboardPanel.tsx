@@ -355,6 +355,11 @@ function Board(): React.JSX.Element {
 
   const onConnect = (c: Connection): void => {
     if (!c.source || !c.target || c.source === c.target) return
+    // [dupdiag] TEMP: React Flow fired a connection. If this logs on restart with no user
+    // drag, the reload-race theory is confirmed. Remove once diagnosed.
+    console.log(
+      `[dupdiag] onConnect source=${c.source} target=${c.target} sh=${c.sourceHandle} th=${c.targetHandle}`,
+    )
     const src = items.find((it) => it.id === c.source)
     const tgt = items.find((it) => it.id === c.target)
 

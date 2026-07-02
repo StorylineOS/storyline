@@ -149,6 +149,20 @@ export function listBoard(): MoodboardSnapshot {
   const connectors = (db.prepare('SELECT * FROM moodboard_connectors').all() as ConnectorRow[]).map(
     rowToConnector,
   )
+  // [dupdiag] TEMP: report duplicate logical connectors present on load. Remove later.
+  {
+    const seen = new Map<string, number>()
+    for (const c of connectors) {
+      const d = (c.data ?? {}) as Record<string, unknown>
+      const key = `${c.fromItemId}|${c.toItemId}|${(d.sourceHandle as string) ?? ''}|${(d.targetHandle as string) ?? ''}`
+      seen.set(key, (seen.get(key) ?? 0) + 1)
+    }
+    const dups = [...seen.entries()].filter(([, n]) => n > 1)
+    console.log(
+      `[dupdiag] listBoard items=${items.length} connectors=${connectors.length} duplicateGroups=${dups.length}`,
+    )
+    for (const [key, n] of dups) console.log(`[dupdiag]   dup x${n}: ${key}`)
+  }
   return { items, connectors }
 }
 
@@ -412,6 +426,22 @@ export function createConnector(
 ): MoodboardConnector {
   getItem(fromItemId)
   getItem(toItemId)
+  // [dupdiag] TEMP: detect duplicate-edge creation. Remove once the root cause is confirmed.
+  {
+    const existing = getDb()
+      .prepare(
+        'SELECT data FROM moodboard_connectors WHERE project_id = ? AND from_item_id = ? AND to_item_id = ?',
+      )
+      .all(projectId(), fromItemId, toItemId) as { data: string | null }[]
+    const sameHandle = existing.filter((r) => {
+      const d = (r.data ? JSON.parse(r.data) : {}) as Record<string, unknown>
+      return (d.sourceHandle ?? null) === sourceHandle && (d.targetHandle ?? null) === targetHandle
+    })
+    console.log(
+      `[dupdiag] createConnector from=${fromItemId} to=${toItemId} sh=${sourceHandle} th=${targetHandle} existingSameEdge=${existing.length} existingSameHandle=${sameHandle.length}` +
+        (sameHandle.length > 0 ? '  <-- CREATING A DUPLICATE' : ''),
+    )
+  }
   const connector: MoodboardConnector = {
     id: randomUUID(),
     projectId: projectId(),
